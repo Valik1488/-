@@ -1,0 +1,231 @@
+@page "/artists/search"
+@using Microsoft.AspNetCore.Authorization
+@using MusicApp.Client.Interfaces
+@using MusicApp.Client.Services
+@using MusicApp.Shared.Models
+@attribute [Authorize]
+@inject ISpotifyClientService SpotifyService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Find Artists</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Search for your favorite artists and explore their music</MudText>
+    </MudPaper>
+
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="8" lg="6" Class="mx-auto">
+            <MudTextField @bind-Value="_searchQuery"
+                          Placeholder="Search for artists..."
+                          Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnAdornmentClick="SearchArtists"
+                          OnKeyDown="@(async e => { if (e.Key == "Enter") await SearchArtists(); })"
+                          Variant="Variant.Outlined"
+                          FullWidth="true">
+                <MudButton Variant="Variant.Filled" 
+                            Color="Color.Primary" 
+                            OnClick="SearchArtists"
+                            StartIcon="@Icons.Material.Filled.Search"
+                            Class="ml-2">
+                    Search
+                </MudButton>
+            </MudTextField>
+        </MudItem>
+    </MudGrid>
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-center align-center" style="height: 300px;">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+        </div>
+    }
+    else if (_artists != null && _artists.Any())
+    {
+        <MudGrid>
+            @foreach (var artist in _artists)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Elevation="2" Class="artist-card h-100" Style="transition: transform 0.2s; position: relative;">
+                        <div class="artist-hover-overlay" @onclick="() => ViewArtistCollaborations(artist.Id!)">
+                            @if (artist.Images != null && artist.Images.Any())
+                            {
+                                <MudCardMedia Image="@artist.Images.First().Url" Height="200" />
+                            }
+                            else
+                            {
+                                <MudCardMedia Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" Color="Color.Inherit" Style="color: white; opacity: 0.8;" />
+                                </MudCardMedia>
+                            }
+                            <div class="artist-hover-content">
+                                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Large" Color="Color.Inherit" />
+                                <MudText Typo="Typo.body1" Style="margin-top: 8px;">View Collaborations</MudText>
+                            </div>
+                            @if (artist.Popularity >= 70)
+                            {
+                                <MudBadge Class="position-absolute" Style="top: 8px; right: 8px;" Color="Color.Warning">
+                                    <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
+                                    Popular
+                                </MudBadge>
+                            }
+                        </div>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Class="mud-text-ellipsis">@artist.Name</MudText>
+                            @if (artist.Genres != null && artist.Genres.Any())
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-ellipsis mud-text-ellipsis-two-line">
+                                    @string.Join(", ", artist.Genres.Take(3))
+                                    @if (artist.Genres.Count > 3)
+                                    {
+                                        <span>...</span>
+                                    }
+                                </MudText>
+                            }
+                            <div class="d-flex align-center mt-2">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">Popularity: @artist.Popularity%</MudChip>
+                            </div>
+                        </MudCardContent>
+                        <MudCardActions Class="d-flex justify-space-between">
+                            <MudButton StartIcon="@Icons.Material.Filled.Person" 
+                                      Variant="Variant.Text" 
+                                      Color="Color.Primary" 
+                                      OnClick="() => ViewArtistCollaborations(artist.Id!)">
+                                View
+                            </MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" 
+                                         Color="Color.Default" 
+                                         OnClick="() => OpenArtistInSpotify(artist.Id!)" 
+                                         Title="Open in Spotify" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else if (!string.IsNullOrWhiteSpace(_searchQuery) && !_isFirstSearch)
+    {
+        <MudPaper Elevation="2" Class="pa-6 text-center">
+            <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Large" Style="opacity: 0.6;" />
+            <MudText Typo="Typo.h6" Class="mt-2">No artists found</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">Try a different search term</MudText>
+        </MudPaper>
+    }
+    else if (_isFirstSearch)
+    {
+        <MudPaper Elevation="2" Class="pa-6 text-center">
+            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" Style="opacity: 0.6;" />
+            <MudText Typo="Typo.h6" Class="mt-2">Search for your favorite artists</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">Type an artist name above to get started</MudText>
+        </MudPaper>
+    }
+
+    <style>
+        .artist-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        .artist-hover-overlay {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .artist-hover-overlay:hover::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .artist-hover-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 2;
+            text-align: center;
+        }
+        
+        .artist-hover-overlay:hover .artist-hover-content {
+            opacity: 1;
+        }
+        
+        .mud-text-ellipsis-two-line {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</MudContainer>
+
+@code {
+    private string _searchQuery = string.Empty;
+    private List<SpotifyArtistDto> _artists = new();
+    private bool _isLoading = false;
+    private bool _isFirstSearch = true;
+    private System.Threading.Timer? _debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if there is a query parameter
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("q", out var query))
+        {
+            _searchQuery = query.ToString();
+            await SearchArtists();
+        }
+    }
+
+    private async Task SearchArtists()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery))
+            return;
+
+        _isLoading = true;
+        _isFirstSearch = false;
+        StateHasChanged();
+
+        try
+        {
+            _artists = await SpotifyService.SearchArtistsAsync(_searchQuery);
+            
+            // Update URL with search query
+            NavigationManager.NavigateTo($"/artists/search?q={Uri.EscapeDataString(_searchQuery)}", false);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error searching artists: {ex.Message}", Severity.Error);
+            _artists = new List<SpotifyArtistDto>();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewArtistCollaborations(string artistId)
+    {
+        NavigationManager.NavigateTo($"/artist/{artistId}/collaborations");
+    }
+
+    private void OpenArtistInSpotify(string artistId)
+    {
+        JSRuntime.InvokeVoidAsync("open", $"https://open.spotify.com/artist/{artistId}", "_blank");
+    }
+}

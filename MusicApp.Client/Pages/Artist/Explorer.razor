@@ -1,0 +1,514 @@
+@page "/artist-explorer"
+@using Microsoft.AspNetCore.Authorization
+@using MusicApp.Client.Interfaces
+@using MusicApp.Shared.Models
+@using MusicApp.Client.Pages
+@using System.Text.Json
+@attribute [Authorize]
+@inject ISpotifyClientService SpotifyService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+<MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Artist Explorer</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Discover related artists and their connections</MudText>
+    </MudPaper>
+    
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4">
+                <MudAutocomplete T="SpotifyArtistDto" 
+                                 Label="Search for an artist" 
+                                 @bind-Value="_selectedArtist"
+                                 SearchFunc="@SearchArtists"
+                                 ToStringFunc="@(a => a?.Name ?? string.Empty)"
+                                 ResetValueOnEmptyText="true"
+                                 AdornmentIcon="@Icons.Material.Filled.Search"
+                                 AdornmentColor="Color.Primary"
+                                 Variant="Variant.Outlined"
+                                 Dense="true"
+                                 Immediate="true" />
+                                 
+                <div class="d-flex justify-end mt-4">
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Primary" 
+                              OnClick="@ExploreArtist"
+                              Disabled="@(_selectedArtist == null)"
+                              StartIcon="@Icons.Material.Filled.Explore">
+                        Explore
+                    </MudButton>
+                </div>
+            </MudPaper>
+            
+            @if (_currentArtist != null)
+            {
+                <MudPaper Class="pa-4 mt-4">
+                    <div class="d-flex">
+                        @if (_currentArtist.Images != null && _currentArtist.Images.Count > 0)
+                        {
+                            <MudAvatar Style="width: 100px; height: 100px; margin-right: 16px;">
+                                <MudImage Src="@_currentArtist.Images[0].Url" Alt="@_currentArtist.Name" />
+                            </MudAvatar>
+                        }
+                        else
+                        {
+                            <MudAvatar Style="width: 100px; height: 100px; margin-right: 16px; background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
+                                <MudIcon Icon="@Icons.Material.Filled.MusicNote" Color="Color.Inherit" />
+                            </MudAvatar>
+                        }
+                        <div>
+                            <MudText Typo="Typo.h5">@_currentArtist.Name</MudText>
+                            @if (_currentArtist.Genres != null && _currentArtist.Genres.Any())
+                            {
+                                <div class="d-flex flex-wrap gap-1 mt-2">
+                                    @foreach (var genre in _currentArtist.Genres.Take(3))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">@genre</MudChip>
+                                    }
+                                    @if (_currentArtist.Genres.Count > 3)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Dark">+@(_currentArtist.Genres.Count - 3) more</MudChip>
+                                    }
+                                </div>
+                            }
+                            <MudText Typo="Typo.body2" Class="mt-2">Popularity: @_currentArtist.Popularity/100</MudText>
+                        </div>
+                    </div>
+                </MudPaper>
+            }
+            
+            <MudPaper Class="pa-4 mt-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Graph Settings</MudText>
+                
+                <MudSlider @bind-Value="_maxDegrees" Min="1" Max="20" Step="1" Color="Color.Primary" 
+                          Class="mt-4"
+                          ValueLabel="true"
+                          Immediate="true"
+                          @onchange="@(async () => await UpdateMaxConnections())">
+                    Max Connections to Show: @_maxDegrees
+                </MudSlider>
+                
+                <div class="d-flex justify-end mt-4">
+                    <MudButton Variant="Variant.Outlined"
+                              Color="Color.Primary"
+                              OnClick="@ResetView"
+                              StartIcon="@Icons.Material.Filled.Refresh">
+                        Reset View
+                    </MudButton>
+                </div>
+            </MudPaper>
+            
+            @if (_selectedTrack != null)
+            {
+                <MudPaper Class="pa-4 mt-4">
+                    <MudText id="songName" Typo="Typo.h6">@_selectedTrack.trackName</MudText>
+                    <MudText Typo="Typo.body2">by @_selectedTrack.artistName</MudText>
+                    
+                    <div class="mt-4">
+                        @if (!string.IsNullOrEmpty(_selectedTrack.trackLink))
+                        {
+                            <iframe src="@_selectedTrack.trackLink" 
+                                   width="100%" 
+                                   height="80" 
+                                   frameborder="0" 
+                                   allowtransparency="true" 
+                                   allow="encrypted-media"
+                                   id="songEmbed"></iframe>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Warning">
+                                No preview available for this track
+                            </MudText>
+                        }
+                    </div>
+                </MudPaper>
+            }
+        </MudItem>
+        
+        <MudItem xs="12" sm="6" md="8">
+            <MudPaper Class="rounded-lg" Style="height: 750px; position: relative;" Elevation="3">
+                <div id="graph-container" style="width: 100%; height: 100%;">
+                    @if (_isLoading)
+                    {
+                        <div class="d-flex justify-center align-center" style="height: 100%;">
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+                        </div>
+                    }
+                    else if (_graphData != null)
+                    {
+                        <!-- Graph visualization using the interactive component -->
+                        <div class="artist-graph-container" style="width: 100%; height: 100%; overflow: hidden;">
+                            <ArtistNetworkGraph 
+                                ArtistConnections="_artistConnections" 
+                                ShowImages="_showImages"
+                                PopularityBasedSize="_popBasedSize"
+                                ShowLeaves="_showLeaves"
+                                MaxDegrees="_maxDegrees"
+                                OnArtistSelected="@OnArtistSelected" />
+                        </div>
+                    }
+                </div>
+                
+                @if (!_isLoading && _graphData == null && _currentArtist == null)
+                {
+                    <div class="d-flex justify-center align-center" style="height: 100%;">
+                        <div class="text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Search" Color="Color.Default" Size="Size.Large" Class="mb-4" />
+                            <MudText Typo="Typo.h6">Search for an artist to start exploring</MudText>
+                        </div>
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private SpotifyArtistDto? _selectedArtist;
+    private SpotifyArtistDto? _currentArtist;
+    private bool _isLoading = false;
+    private bool _showImages = true;
+    private bool _popBasedSize = true;
+    private bool _showLeaves = true;
+    private int _maxDegrees = 10;
+    private dynamic? _selectedTrack;
+    private dynamic? _graphData;
+    private bool _d3Loaded = false;
+    
+    private List<ArtistConnection> _artistConnections = new();
+    private HashSet<string> _visitedArtists = new();
+
+    // Class to represent artist node and connection data
+    public class ArtistConnection
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Popularity { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public List<string> ConnectedArtists { get; set; } = new();
+        public List<string> Genres { get; set; } = new();
+        public List<TrackInfo> Tracks { get; set; } = new();
+    }
+
+    public class TrackInfo
+    {
+        public string Name { get; set; } = "";
+        public string Link { get; set; } = "";
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize any needed JavaScript interop here
+            _d3Loaded = true;
+        }
+    }
+    
+    protected override void OnInitialized()
+    {
+        _dotNetRef = DotNetObjectReference.Create(this);
+    }
+    private DotNetObjectReference<Explorer>? _dotNetRef;
+    
+    private async Task<IEnumerable<SpotifyArtistDto>> SearchArtists(string searchText, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+            return Array.Empty<SpotifyArtistDto>();
+            
+        try
+        {
+            return await SpotifyService.SearchArtistsAsync(searchText);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error searching artists: {ex.Message}", Severity.Error);
+            return Array.Empty<SpotifyArtistDto>();
+        }
+    }
+    
+    private async Task ExploreArtist()
+    {
+        if (_selectedArtist == null)
+            return;
+            
+        try
+        {
+            _isLoading = true;
+            StateHasChanged();
+            
+            _currentArtist = _selectedArtist;
+            _artistConnections.Clear();
+            _visitedArtists.Clear();
+            _selectedTrack = null;
+            
+            // Get related artists for the selected artist
+            var relatedArtistsData = await SpotifyService.GetRelatedArtistsAsync(_currentArtist.Id);
+            
+            // Build the graph data
+            await BuildGraphData(_currentArtist, relatedArtistsData);
+            
+            // Update the graph visualization
+            await UpdateGraphVisualization();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error exploring artist: {ex.Message}", Severity.Error);
+            Console.WriteLine($"Exception details: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task BuildGraphData(SpotifyArtistDto mainArtist, dynamic relatedArtists)
+    {
+        // Create the main artist node
+        var mainNode = new ArtistConnection
+        {
+            Id = mainArtist.Id,
+            Name = mainArtist.Name,
+            Popularity = mainArtist.Popularity ?? 0,
+            ImageUrl = mainArtist.Images?.FirstOrDefault()?.Url ?? "",
+            Genres = mainArtist.Genres?.ToList() ?? new List<string>()
+        };
+        
+        _artistConnections.Add(mainNode);
+        _visitedArtists.Add(mainArtist.Id);
+        
+        // Process related artists
+        if (relatedArtists is IEnumerable<SpotifyArtistDto> artistDtos)
+        {
+            // Handle strongly typed list
+            foreach (var artist in artistDtos)
+            {
+                await ProcessArtist(artist, mainNode);
+            }
+        }
+        else if (relatedArtists is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Array)
+        {
+            // Handle JsonElement array
+            foreach (var artist in jsonElement.EnumerateArray())
+            {
+                await ProcessArtist(artist, mainNode);
+            }
+        }
+        else
+        {
+            // Handle generic IEnumerable from dynamic objects
+            foreach (var artist in relatedArtists)
+            {
+                await ProcessArtist(artist, mainNode);
+            }
+        }
+        
+        // Create graph data structure for visualization
+        _graphData = new
+        {
+            nodes = _artistConnections.Select(a => new 
+            {
+                id = a.Id, 
+                name = a.Name,
+                image = a.ImageUrl,
+                popularity = a.Popularity,
+                genres = a.Genres
+            }).ToList(),
+            links = _artistConnections.SelectMany(a => 
+                a.ConnectedArtists.Select(targetId => new 
+                {
+                    source = a.Id,
+                    target = targetId
+                })
+            ).ToList()
+        };
+    }
+
+    private async Task ProcessArtist(dynamic artist, ArtistConnection? connectingArtist = null)
+    {
+        try
+        {
+            // Safely extract properties from dynamic JSON
+            string artistId = "";
+            string artistName = "";
+            int popularity = 0;
+            string imageUrl = "";
+            List<string> genres = new List<string>();
+            Console.WriteLine($"Processing artist: {artist}");
+            // Check the type and extract data accordingly
+            if (artist is System.Text.Json.JsonElement jsonElement)
+            {
+                Console.WriteLine($"Processing JsonElement: {jsonElement}");
+                // Extract from JsonElement
+                if (jsonElement.TryGetProperty("artistId", out var idElement))
+                    artistId = idElement.GetString() ?? "";
+                    
+                if (jsonElement.TryGetProperty("artistName", out var nameElement))
+                    artistName = nameElement.GetString() ?? "";
+                    
+                if (jsonElement.TryGetProperty("popularity", out var popElement) && popElement.TryGetInt32(out int pop))
+                    popularity = pop;
+                    
+                // Extract image URL
+                if (jsonElement.TryGetProperty("image", out var imagesElement) && 
+                    imagesElement.ValueKind == JsonValueKind.Array && 
+                    imagesElement.GetArrayLength() > 0)
+                {
+                    var firstImage = imagesElement[0];
+                    if (firstImage.TryGetProperty("image", out var urlElement))
+                        imageUrl = urlElement.GetString() ?? "";
+                }
+
+                if (jsonElement.TryGetProperty("image", out var imElement))
+                    imageUrl = imElement.GetString() ?? "";
+                
+                // Extract genres
+                if (jsonElement.TryGetProperty("genres", out var genresElement) && 
+                    genresElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var genre in genresElement.EnumerateArray())
+                    {
+                        genres.Add(genre.GetString() ?? "");
+                    }
+                }
+                Console.WriteLine($"Extracted artistId: {artistId}, artistName: {artistName}, popularity: {popularity}, imageUrl: {imageUrl}, genres: {string.Join(", ", genres)}");
+            }
+            else if (artist is SpotifyArtistDto artistDto)
+            {
+                // Extract from SpotifyArtistDto
+                artistId = artistDto.Id;
+                artistName = artistDto.Name;
+                popularity = artistDto.Popularity ?? 0;
+                imageUrl = artistDto.Images?.FirstOrDefault()?.Url ?? "";
+                genres = artistDto.Genres?.ToList() ?? new List<string>();
+            }
+            else
+            {
+                // Fallback to try accessing properties directly (might throw if properties don't exist)
+                artistId = artist.id?.ToString() ?? "";
+                artistName = artist.name?.ToString() ?? "";
+                popularity = artist.popularity != null ? Convert.ToInt32(artist.popularity) : 0;
+                
+                if (artist.images != null && artist.images.Count > 0)
+                    imageUrl = artist.images[0].url?.ToString() ?? "";
+                    
+                if (artist.genres != null)
+                {
+                    foreach (var genre in artist.genres)
+                    {
+                        genres.Add(genre.ToString());
+                    }
+                }
+            }
+            
+            // Skip if we've already processed this artist or if we've reached the maximum connections
+            if (string.IsNullOrEmpty(artistId) || _visitedArtists.Contains(artistId) || _artistConnections.Count >= _maxDegrees)
+                return;
+                    
+            // Create artist connection node
+            var artistNode = new ArtistConnection
+            {
+                Id = artistId,
+                Name = artistName,
+                Popularity = popularity,
+                ImageUrl = imageUrl,
+                Genres = genres
+            };
+            
+            // Add connection to connecting artist if provided
+            if (connectingArtist != null)
+            {
+                artistNode.ConnectedArtists.Add(connectingArtist.Id);
+                connectingArtist.ConnectedArtists.Add(artistId);
+            }
+            
+            // Add to our collection and mark as visited
+            _artistConnections.Add(artistNode);
+            _visitedArtists.Add(artistId);
+            
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error processing artist: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task UpdateGraphVisualization()
+    {
+        // No need for JS interop here since we're using Blazor components
+        StateHasChanged();
+    }
+    
+    private async Task UpdateGraphSettings()
+    {
+        // Apply filter settings to the existing graph data
+        await UpdateGraphVisualization();
+    }
+    
+    private async Task UpdateMaxConnections()
+    {
+        // Re-fetch data if needed based on the new max connections setting
+        if (_currentArtist != null)
+        {
+            try
+            {
+                _isLoading = true;
+                StateHasChanged();
+                
+                var relatedArtistsData = await SpotifyService.GetRelatedArtistsAsync(_currentArtist.Id);
+                await BuildGraphData(_currentArtist, relatedArtistsData);
+                await UpdateGraphVisualization();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error updating connections: {ex.Message}", Severity.Error);
+                Console.WriteLine($"Exception details: {ex}");
+            }
+            finally
+            {
+                _isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+    
+    private async Task ResetView()
+    {
+        if (_currentArtist != null)
+        {
+            await ExploreArtist();
+        }
+    }
+    
+    private void OnArtistSelected(string artistId)
+    {
+        // Find the selected artist
+        var artist = _artistConnections.FirstOrDefault(a => a.Id == artistId);
+        if (artist != null && artist.Tracks.Any())
+        {
+            // Display the first track for this artist
+            var track = artist.Tracks.First();
+            _selectedTrack = new
+            {
+                artistName = artist.Name,
+                trackName = track.Name,
+                trackLink = track.Link
+            };
+        }
+        else
+        {
+            _selectedTrack = null;
+        }
+        
+        StateHasChanged();
+    }
+    
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+}

@@ -1,0 +1,229 @@
+@page "/playlists"
+@using Microsoft.AspNetCore.Authorization
+@using MusicApp.Client.Interfaces
+@using MusicApp.Shared.Models
+@using System.Text.Json
+@attribute [Authorize]
+@inject ISpotifyClientService SpotifyService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+<MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Your Spotify Playlists</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Discover and manage your music collections</MudText>
+    </MudPaper>
+    
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-center align-center" style="height: 300px;">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+        </div>
+    }
+    else if (_playlists != null && _playlists.Count > 0)
+    {
+        <MudTextField @bind-Value="_searchTerm" 
+                     Placeholder="Search playlists..." 
+                     Adornment="Adornment.Start" 
+                     AdornmentIcon="@Icons.Material.Filled.Search" 
+                     Immediate="true"
+                     Class="mb-4" />
+        
+        <MudGrid>
+            @foreach (var playlist in FilteredPlaylists)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Elevation="2" Class="playlist-card h-100" Style="transition: transform 0.2s; position: relative;">
+                        <div class="playlist-hover-overlay" @onclick="@(() => NavigateToPlaylistDetails(playlist.Id!))">
+                            @if (playlist.Images != null && playlist.Images.Count > 0)
+                            {
+                                <MudCardMedia Image="@playlist.Images[0].Url" Height="200" />
+                            }
+                            else
+                            {
+                                <MudCardMedia Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%); height: 200px; display: flex; align-items: center; justify-content: center;">
+                                    <MudIcon Icon="@Icons.Material.Filled.MusicNote" Size="Size.Large" Color="Color.Inherit" Style="color: white; opacity: 0.8;" />
+                                </MudCardMedia>
+                            }
+                            <div class="playlist-hover-content">
+                                <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Large" Color="Color.Inherit" />
+                                <MudText Typo="Typo.body1" Style="margin-top: 8px;">View Details</MudText>
+                            </div>
+                        </div>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Class="mud-text-ellipsis">@playlist.Name</MudText>
+                            @if (!string.IsNullOrEmpty(playlist.Description))
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-ellipsis mud-text-ellipsis-two-line">@((MarkupString)playlist.Description)</MudText>
+                            }
+                            <div class="d-flex align-center mt-2">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@playlist.Tracks?.Total tracks</MudChip>
+                                @if (playlist.Tracks?.Total <= 300)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="margin-left: 8px;">Recommendations Available</MudChip>
+                                }
+                                else
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Style="margin-left: 8px;">Too Large for Recommendations</MudChip>
+                                }
+                            </div>
+                        </MudCardContent>
+                        <MudCardActions Class="d-flex justify-space-between">
+                            <MudButton StartIcon="@Icons.Material.Filled.MusicNote" 
+                                      Variant="Variant.Text" 
+                                      Color="Color.Primary" 
+                                      OnClick="@(() => OpenSpotifyPlaylist(playlist.Id!))">
+                                Open
+                            </MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Bookmark" 
+                                         Color="@(HasStoredRecommendations(playlist.Id!) ? Color.Secondary : Color.Default)" 
+                                         OnClick="@(() => NavigateToPlaylistDetails(playlist.Id!))" 
+                                         Title="View Details & Recommendations" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+        
+        @if (!FilteredPlaylists.Any())
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4">No playlists match your search.</MudAlert>
+        }
+    }
+    else
+    {
+        <MudPaper Elevation="2" Class="pa-6 text-center">
+            <MudIcon Icon="@Icons.Material.Filled.QueueMusic" Size="Size.Large" Style="opacity: 0.6;" />
+            <MudText Typo="Typo.h6" Class="mt-2">No playlists found in your Spotify account.</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">Create playlists in Spotify and they'll appear here.</MudText>
+            <MudButton StartIcon="@Icons.Material.Filled.MusicNote" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      OnClick="@(() => JSRuntime.InvokeVoidAsync("open", "https://open.spotify.com", "_blank"))"
+                      Class="mt-4">
+                Open Spotify
+            </MudButton>
+        </MudPaper>
+    }
+    
+    <style>
+        .playlist-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        .playlist-hover-overlay {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .playlist-hover-overlay:hover::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .playlist-hover-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 2;
+            text-align: center;
+        }
+        
+        .playlist-hover-overlay:hover .playlist-hover-content {
+            opacity: 1;
+        }
+        
+        .mud-text-ellipsis-two-line {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</MudContainer>
+
+@code {
+    private List<SpotifyPlaylistDto>? _playlists;
+    private bool _isLoading = true;
+    private string _searchTerm = string.Empty;
+    private Dictionary<string, bool> _storedRecommendationsCache = new();
+    
+    private IEnumerable<SpotifyPlaylistDto> FilteredPlaylists => 
+        _playlists?.Where(p => 
+            string.IsNullOrWhiteSpace(_searchTerm) || 
+            p.Name?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+            p.Description?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true) 
+        ?? Enumerable.Empty<SpotifyPlaylistDto>();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _playlists = await SpotifyService.GetUserPlaylistsAsync();
+            await LoadStoredRecommendationsCache();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading playlists: {ex.Message}", Severity.Error);
+            _playlists = new List<SpotifyPlaylistDto>();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    
+    private async Task LoadStoredRecommendationsCache()
+    {
+        try
+        {
+            var storedKeys = await JSRuntime.InvokeAsync<string[]>("localStorage.getKeys", "spotify_recommendations_");
+            foreach (var key in storedKeys)
+            {
+                var playlistId = key.Replace("spotify_recommendations_", "");
+                _storedRecommendationsCache[playlistId] = true;
+            }
+        }
+        catch
+        {
+            // Fallback if the localStorage.getKeys function isn't available
+            _storedRecommendationsCache = new Dictionary<string, bool>();
+        }
+    }
+    
+    private bool HasStoredRecommendations(string playlistId)
+    {
+        return _storedRecommendationsCache.ContainsKey(playlistId);
+    }
+    
+    private void OpenSpotifyPlaylist(string playlistId)
+    {
+        JSRuntime.InvokeVoidAsync("open", $"https://open.spotify.com/playlist/{playlistId}", "_blank");
+    }
+    
+    private void NavigateToPlaylistDetails(string playlistId)
+    {
+        var playlist = _playlists?.FirstOrDefault(p => p.Id == playlistId);
+        if (playlist != null)
+        {
+            JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "current_playlist", JsonSerializer.Serialize(playlist));
+            NavigationManager.NavigateTo($"/playlist/{playlistId}");
+        }
+    }
+}

@@ -1,0 +1,102 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using MusicApp.Client.Interfaces
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<AuthorizeView>
+    <Authorized>
+        <MudMenu 
+            Icon="@Icons.Material.Filled.AccountCircle" 
+            Color="Color.Inherit" 
+            Direction="Direction.Bottom" 
+            OffsetY="true"
+            Dense="false"
+            Class="user-menu">
+            
+            <ActivatorContent>
+                <MudAvatar Color="Color.Success" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);" Class="mud-elevation-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" />
+                </MudAvatar>
+            </ActivatorContent>
+            
+            <ChildContent>
+                <div class="px-3 py-4" style="min-width: 250px;">
+                    <div class="d-flex flex-column align-center">
+                        <MudAvatar Color="Color.Success" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%); width: 60px; height: 60px;" Class="mb-2 mud-elevation-4">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" />
+                        </MudAvatar>
+                        <MudText Typo="Typo.body1" Class="mt-2 font-weight-bold">@context.User.Identity?.Name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Success">Connected with Spotify</MudText>
+                    </div>
+                </div>
+                
+                <MudDivider />
+                
+                <div class="py-2">
+                    <MudMenuItem Href="/profile" Icon="@Icons.Material.Filled.Person">
+                        <div class="d-flex align-center">
+                            <span>View Profile</span>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="ml-auto" />
+                        </div>
+                    </MudMenuItem>
+                    
+                    <MudMenuItem Href="/playlists" Icon="@Icons.Material.Filled.LibraryMusic">
+                        <div class="d-flex align-center">
+                            <span>My Playlists</span>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="ml-auto" />
+                        </div>
+                    </MudMenuItem>
+                    
+                    <MudMenuItem Href="/artists/search" Icon="@Icons.Material.Filled.Search">
+                        <div class="d-flex align-center">
+                            <span>Find Artists</span>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="ml-auto" />
+                        </div>
+                    </MudMenuItem>
+                </div>
+                
+                <MudDivider />
+                
+                <div class="py-2">
+                    <MudMenuItem OnClick="LogoutClick" Icon="@Icons.Material.Filled.Logout">
+                        <div class="d-flex align-center">
+                            <span>Logout</span>
+                        </div>
+                    </MudMenuItem>
+                </div>
+            </ChildContent>
+        </MudMenu>
+    </Authorized>
+    <NotAuthorized>
+        <MudButton 
+            Variant="Variant.Filled" 
+            Color="Color.Success" 
+            OnClick="LoginClick" 
+            StartIcon="@Icons.Material.Filled.MusicNote"
+            Class="px-3 py-1"
+            Style="border-radius: 20px;">
+            Connect Spotify
+        </MudButton>
+    </NotAuthorized>
+</AuthorizeView>
+
+<style>
+    .user-menu ::deep .mud-menu-activator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+@code {
+    private async Task LogoutClick()
+    {
+        await AuthService.Logout();
+        NavigationManager.NavigateTo("/");
+    }
+
+    private void LoginClick()
+    {
+        NavigationManager.NavigateTo("/login");
+    }
+}

@@ -1,0 +1,104 @@
+﻿@using MusicApp.Client.Interfaces
+@using MusicApp.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<MudNavMenu Class="custom-nav-menu mud-width-full py-2">
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home" Class="nav-item">
+        Home
+    </MudNavLink>
+    
+    <MudNavLink Href="mp3-editor" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MusicNote" Class="nav-item">
+        MP3 Editor
+    </MudNavLink>
+
+    <AuthorizeView>
+        <Authorized>
+            <MudDivider Class="my-2" />
+            
+            <MudText Typo="Typo.caption" Class="px-4 py-1 mud-text-secondary">
+                YOUR SPOTIFY
+            </MudText>
+            
+            <MudNavLink Href="/profile" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person" Class="nav-item">
+                Profile
+            </MudNavLink>
+            
+            <MudNavLink Href="/playlists" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LibraryMusic" Class="nav-item">
+                Playlists
+            </MudNavLink>
+            
+            <MudDivider Class="my-2" />
+            
+            <MudText Typo="Typo.caption" Class="px-4 py-1 mud-text-secondary">
+                DISCOVER
+            </MudText>
+            
+            <MudNavLink Href="/artists/search" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search" Class="nav-item">
+                Search Artists
+            </MudNavLink>
+            
+            <MudNavLink Href="/artist-explorer" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Explore" Class="nav-item">
+                Artist Explorer
+            </MudNavLink>
+        </Authorized>
+        <NotAuthorized>
+            <MudDivider Class="my-2" />
+            
+            <MudNavLink Href="/login" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Login" Class="nav-item">
+                Login with Spotify
+            </MudNavLink>
+            
+            <div class="px-4 py-4 mt-4">
+                <MudPaper Elevation="0" Class="pa-4" Style="background-color: rgba(29, 185, 84, 0.1); border-radius: 4px;">
+                    <MudText Typo="Typo.body2" Style="color: #1DB954;">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
+                        Connect to access all features
+                    </MudText>
+                </MudPaper>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudNavMenu>
+
+<style>
+    .nav-header {
+        height: 64px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .custom-nav-menu ::deep .mud-nav-link {
+        border-radius: 4px;
+        margin: 0 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .custom-nav-menu ::deep .mud-nav-link:hover:not(.active) {
+        background-color: rgba(29, 185, 84, 0.1);
+    }
+    
+    .custom-nav-menu ::deep .mud-nav-link.active {
+        background-color: rgba(29, 185, 84, 0.2);
+        color: #1DB954;
+        font-weight: 500;
+    }
+    
+    .custom-nav-menu ::deep .mud-nav-link.active .mud-nav-link-icon {
+        color: #1DB954;
+    }
+</style>
+
+@code {
+    private string GetCurrentUrl()
+    {
+        return NavigationManager.Uri;
+    }
+    
+    private bool IsActive(string href)
+    {
+        var currentUrl = GetCurrentUrl();
+        return currentUrl.EndsWith(href);
+    }
+}

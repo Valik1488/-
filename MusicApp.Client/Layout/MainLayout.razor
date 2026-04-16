@@ -1,0 +1,83 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@using MusicApp.Client.Pages
+@using Microsoft.AspNetCore.Components.Authorization
+
+<MudThemeProvider Theme="_currentTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<CascadingAuthenticationState>
+    <MudLayout>
+        <MudPopoverProvider />
+        <MudAppBar Elevation="1" Color="Color.Dark">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            <MudText Typo="Typo.h6" Class="ml-3">Music App</MudText>
+            <MudSpacer />
+            <LoginDisplay />
+        </MudAppBar>
+        
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Color="Color.Dark">
+            <NavMenu />
+        </MudDrawer>
+        
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pt-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+</CascadingAuthenticationState>
+@code {
+    private bool _drawerOpen = true;
+    private MudTheme _currentTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#1DB954",     // Spotify Green
+            Secondary = "#9B9B9B",   // Light Gray
+            AppbarBackground = "#141915", // Spotify Black
+            Background = "#121212",  // Spotify Dark Gray
+            Surface = "#141915",     // Spotify Black
+            DrawerBackground = "#141915", // Spotify Black
+            DrawerText = "#FFFFFF",  // White
+            DrawerIcon = "#FFFFFF",  // White
+            TextPrimary = "#FFFFFF", // White
+            TextSecondary = "#B3B3B3", // Light Gray
+            ActionDefault = "#FFFFFF", // White
+            Info = "#4F8EF7",        // Blue
+            Success = "#1DB954",     // Spotify Green
+            Warning = "#FF9800",     // Orange
+            Error = "#E91429",       // Spotify Red
+            Dark = "#121212",        // Spotify Dark Gray
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#1DB954",     // Spotify Green
+            Secondary = "#9B9B9B",   // Light Gray
+            AppbarBackground = "#141915", // Spotify Black
+            Background = "#121212",  // Spotify Dark Gray
+            Surface = "#141915",     // Spotify Black
+            DrawerBackground = "#141915", // Spotify Black
+            DrawerText = "#FFFFFF",  // White
+            DrawerIcon = "#FFFFFF",  // White
+            TextPrimary = "#FFFFFF", // White
+            TextSecondary = "#B3B3B3", // Light Gray
+            ActionDefault = "#FFFFFF", // White
+            Info = "#4F8EF7",        // Blue
+            Success = "#1DB954",     // Spotify Green
+            Warning = "#FF9800",     // Orange
+            Error = "#E91429",       // Spotify Red
+            Dark = "#121212",        // Spotify Dark Gray
+        },
+        Shadows = new Shadow(),
+        LayoutProperties = new LayoutProperties()
+        {
+            DefaultBorderRadius = "4px"
+        }
+    };
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

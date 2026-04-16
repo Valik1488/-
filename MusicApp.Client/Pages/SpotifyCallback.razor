@@ -1,0 +1,158 @@
+@page "/auth/spotify-success"
+@using MusicApp.Client.Interfaces
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Authentication Status</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Processing your Spotify connection</MudText>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" md="8" lg="6" Class="mx-auto">
+            <MudCard Elevation="3" Class="pa-6">
+                <MudCardContent>
+                    <div class="d-flex flex-column align-center">
+                        @if (loading)
+                        {
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" Class="mb-4" />
+                            <MudText Typo="Typo.h5" Align="Align.Center">Processing Authentication</MudText>
+                            <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-2">
+                                Please wait while we connect your Spotify account...
+                            </MudText>
+                        }
+                        else if (error)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Style="font-size: 64px; margin-bottom: 16px;" />
+                            <MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Error">Authentication Failed</MudText>
+                            <MudAlert Severity="Severity.Error" Class="my-4" Variant="Variant.Filled">@errorMessage</MudAlert>
+                            <div class="d-flex mt-4">
+                                <MudButton Variant="Variant.Filled" 
+                                          Color="Color.Primary" 
+                                          Href="/login"
+                                          StartIcon="@Icons.Material.Filled.Refresh"
+                                          Class="mx-2">
+                                    Try Again
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" 
+                                          Color="Color.Default" 
+                                          Href="/"
+                                          StartIcon="@Icons.Material.Filled.Home"
+                                          Class="mx-2">
+                                    Return to Home
+                                </MudButton>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size: 64px; margin-bottom: 16px;" />
+                            <MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Success">Authentication Successful!</MudText>
+                            <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-2 mb-4">
+                                You have successfully connected your Spotify account. You can now explore all features of the application.
+                            </MudText>
+                            
+                            <MudCard Elevation="1" Class="mt-4 mb-6 pa-4" Style="width: 100%; background-color: rgba(29, 185, 84, 0.1);">
+                                <MudText Typo="Typo.subtitle1" Style="color: #1DB954;" Class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-2" />
+                                    What would you like to do next?
+                                </MudText>
+                            </MudCard>
+                            
+                            <MudGrid>
+                                <MudItem xs="12" sm="6">
+                                    <MudButton Variant="Variant.Filled" 
+                                              Color="Color.Primary" 
+                                              FullWidth="true"
+                                              Href="/"
+                                              StartIcon="@Icons.Material.Filled.Home">
+                                        Go to Dashboard
+                                    </MudButton>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudButton Variant="Variant.Outlined" 
+                                              Color="Color.Primary" 
+                                              FullWidth="true"
+                                              Href="/profile"
+                                              StartIcon="@Icons.Material.Filled.Person">
+                                        View Your Profile
+                                    </MudButton>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudButton Variant="Variant.Outlined" 
+                                              Color="Color.Primary" 
+                                              FullWidth="true"
+                                              Href="/playlists"
+                                              StartIcon="@Icons.Material.Filled.LibraryMusic">
+                                        View Your Playlists
+                                    </MudButton>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudButton Variant="Variant.Outlined" 
+                                              Color="Color.Primary" 
+                                              FullWidth="true"
+                                              Href="/artists/search"
+                                              StartIcon="@Icons.Material.Filled.Search">
+                                        Find Artists
+                                    </MudButton>
+                                </MudItem>
+                            </MudGrid>
+                        }
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool loading = true;
+    private bool error = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get token from URL (query parameter)
+            var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var token = queryParams["token"];
+
+            Console.WriteLine($"Received token from URL: {token?.Substring(0, 10)}...");
+
+            if (string.IsNullOrEmpty(token))
+            {
+                error = true;
+                errorMessage = "No authentication token received.";
+                return;
+            }
+
+            var success = await AuthService.HandleSpotifyCallbackAsync(token);
+            if (!success)
+            {
+                error = true;
+                errorMessage = "Failed to process authentication token.";
+                return;
+            }
+
+            // Check if we're actually authenticated now
+            var isAuthenticated = await AuthService.IsUserAuthenticated();
+            Console.WriteLine($"IsUserAuthenticated check returned: {isAuthenticated}");
+
+            // Successfully authenticated
+            loading = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in callback: {ex.Message}");
+            error = true;
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

@@ -1,0 +1,385 @@
+@using System.Numerics
+@using MusicApp.Shared.Models
+@inject IJSRuntime JSRuntime
+
+<div class="network-graph" style="width: 100%; height: 100%; position: relative;" @ref="_graphContainer">
+    <!-- SVG for graph visualization -->
+    <svg width="100%" height="100%" @ref="_svgElement">
+        <g class="graph-transform-group" @ref="_transformGroup">
+            <!-- Links between artists -->
+            @foreach (var link in _links)
+            {
+                <line x1="@link.Source.X" y1="@link.Source.Y" 
+                      x2="@link.Target.X" y2="@link.Target.Y" 
+                      stroke="#999" stroke-opacity="0.6" stroke-width="1" />
+            }
+            
+            <!-- Artist Nodes -->
+            @foreach (var node in _nodes)
+            {
+                <g class="node @(node.IsLeaf && !ShowLeaves ? "hidden" : "")" 
+                   transform="translate(@node.X, @node.Y)" 
+                   @onclick="() => OnNodeClick(node)"
+                   @onmouseover="() => OnNodeHover(node, true)"
+                   @onmouseout="() => OnNodeHover(node, false)">
+                    
+                    <!-- If showing images and has image -->
+                    @if (ShowImages && !string.IsNullOrEmpty(node.ImageUrl))
+                    {
+                        <clipPath id="clip-@node.Id">
+                            <circle r="@GetNodeRadius(node)" />
+                        </clipPath>
+                        <image href="@node.ImageUrl" 
+                               width="@(GetNodeRadius(node) * 2)" 
+                               height="@(GetNodeRadius(node) * 2)" 
+                               x="@(-GetNodeRadius(node))" 
+                               y="@(-GetNodeRadius(node))" 
+                               clip-path="url(#clip-@node.Id)" />
+                        <circle r="@GetNodeRadius(node)" 
+                                fill="transparent" 
+                                stroke="#fff" 
+                                stroke-width="1.5" 
+                                class="node-outline @(node.IsHovered ? "hovered" : "")" />
+                    }
+                    else
+                    {
+                        <circle r="@GetNodeRadius(node)" 
+                                fill="@GetNodeColor(node)" 
+                                stroke="#fff" 
+                                stroke-width="1.5"
+                                class="@(node.IsHovered ? "hovered" : "")" />
+                    }
+                    
+                    <!-- Artist name label -->
+                    <text dy=".35em" 
+                          text-anchor="middle" 
+                          font-size="@(node.IsMainArtist ? "14px" : "12px")" 
+                          font-weight="@(node.IsMainArtist ? "bold" : "normal")"
+                          fill="#fff" 
+                          stroke="#000" 
+                          stroke-width="0.5"
+                          pointer-events="none">
+                        @node.Name
+                    </text>
+                </g>
+            }
+        </g>
+    </svg>
+    
+    <!-- Zoom and Pan Controls -->
+    <div class="zoom-controls" style="position: absolute; bottom: 10px; right: 10px;">
+        <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
+            <MudButton OnClick="@ZoomIn" Size="Size.Small">
+                <MudIcon Icon="@Icons.Material.Filled.ZoomIn" />
+            </MudButton>
+            <MudButton OnClick="@ZoomOut" Size="Size.Small">
+                <MudIcon Icon="@Icons.Material.Filled.ZoomOut" />
+            </MudButton>
+            <MudButton OnClick="@ResetZoom" Size="Size.Small">
+                <MudIcon Icon="@Icons.Material.Filled.CenterFocusWeak" />
+            </MudButton>
+        </MudButtonGroup>
+    </div>
+    
+    @if (_hoveredNode != null)
+    {
+        <div class="node-tooltip" style="position: absolute; left: @(_tooltipX)px; top: @(_tooltipY)px; 
+                background-color: rgba(25, 20, 20, 0.9); color: white; padding: 8px; 
+                border-radius: 4px; z-index: 100; pointer-events: none;">
+            <div style="font-weight: bold;">@_hoveredNode.Name</div>
+            <div>Popularity: @_hoveredNode.Popularity</div>
+            @if (_hoveredNode.Genres.Any())
+            {
+                <div>Genres: @string.Join(", ", _hoveredNode.Genres.Take(3))</div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .network-graph {
+        cursor: grab;
+    }
+    
+    .network-graph.grabbing {
+        cursor: grabbing;
+    }
+    
+    .node circle.hovered, .node-outline.hovered {
+        stroke: #1DB954;
+        stroke-width: 3px;
+    }
+    
+    .node {
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    
+    @* .node:hover {
+        transform: scale(1.1);
+    } *@
+    
+    .hidden {
+        display: none;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public List<Explorer.ArtistConnection> ArtistConnections { get; set; } = new();
+    
+    [Parameter]
+    public bool ShowImages { get; set; } = true;
+    
+    [Parameter]
+    public bool PopularityBasedSize { get; set; } = true;
+    
+    [Parameter]
+    public bool ShowLeaves { get; set; } = true;
+    
+    [Parameter]
+    public int MaxDegrees { get; set; } = 10;
+    
+    [Parameter]
+    public EventCallback<string> OnArtistSelected { get; set; }
+    
+    private ElementReference _svgElement;
+    private ElementReference _transformGroup;
+    private ElementReference _graphContainer;
+    private List<NodeData> _nodes = new();
+    private List<LinkData> _links = new();
+    private NodeData? _hoveredNode;
+    private double _tooltipX;
+    private double _tooltipY;
+    private float _zoom = 1.0f;
+    private Vector2 _pan = Vector2.Zero;
+    private bool _isDragging = false;
+    private DotNetObjectReference<ArtistNetworkGraph>? _dotNetRef;
+    
+    private class NodeData
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Popularity { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public List<string> Genres { get; set; } = new();
+        public bool IsMainArtist { get; set; }
+        public bool IsLeaf { get; set; }
+        public float X { get; set; }
+        public float Y { get; set; }
+        public bool IsHovered { get; set; }
+    }
+    
+    private class LinkData
+    {
+        public NodeData Source { get; set; } = null!;
+        public NodeData Target { get; set; } = null!;
+    }
+    
+    protected override void OnParametersSet()
+    {
+        UpdateGraph();
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await InitializeZoomPanDrag();
+        }
+    }
+
+    private async Task InitializeZoomPanDrag()
+    {
+        await JSRuntime.InvokeVoidAsync("initializeNetworkGraph", _svgElement, _transformGroup, _graphContainer, _dotNetRef);
+    }
+    
+    [JSInvokable]
+    public void OnGraphDragStart()
+    {
+        _isDragging = true;
+        StateHasChanged();
+    }
+    
+    [JSInvokable]
+    public void OnGraphDragEnd()
+    {
+        _isDragging = false;
+        StateHasChanged();
+    }
+    
+    [JSInvokable]
+    public void UpdatePanZoom(float zoom, float panX, float panY)
+    {
+        _zoom = zoom;
+        _pan = new Vector2(panX, panY);
+        StateHasChanged();
+    }
+    
+    private void UpdateGraph()
+    {
+        _nodes.Clear();
+        _links.Clear();
+        
+        if (ArtistConnections == null || !ArtistConnections.Any())
+            return;
+            
+        // Create nodes from ArtistConnections
+        var mainArtist = ArtistConnections.FirstOrDefault();
+        if (mainArtist == null)
+            return;
+            
+        // Layout nodes in a radial pattern
+        // Main artist at center
+        var mainNode = new NodeData
+        {
+            Id = mainArtist.Id,
+            Name = mainArtist.Name,
+            Popularity = mainArtist.Popularity,
+            ImageUrl = mainArtist.ImageUrl,
+            Genres = mainArtist.Genres,
+            IsMainArtist = true,
+            X = 0,
+            Y = 0
+        };
+        _nodes.Add(mainNode);
+        
+        // Place other artists in a circle around the main artist
+        int radius = 300; // Base radius for layout
+        double angleStep = 2 * Math.PI / Math.Max(1, (ArtistConnections.Count - 1));
+        double currentAngle = 0;
+        
+        foreach (var artist in ArtistConnections.Skip(1))
+        {
+            // Position in circle with some randomness for better spread
+            float randomOffset = new Random().Next(-30, 30);
+            float x = (float)(radius * Math.Cos(currentAngle)) + randomOffset;
+            float y = (float)(radius * Math.Sin(currentAngle)) + randomOffset;
+            
+            // Count connections to determine if this is a leaf node
+            bool isLeaf = artist.ConnectedArtists.Count <= 1;
+            
+            var node = new NodeData
+            {
+                Id = artist.Id,
+                Name = artist.Name,
+                Popularity = artist.Popularity,
+                ImageUrl = artist.ImageUrl,
+                Genres = artist.Genres,
+                IsMainArtist = false,
+                IsLeaf = isLeaf,
+                X = x,
+                Y = y
+            };
+            
+            _nodes.Add(node);
+            currentAngle += angleStep;
+        }
+        
+        // Create links between artists
+        foreach (var source in ArtistConnections)
+        {
+            var sourceNode = _nodes.FirstOrDefault(n => n.Id == source.Id);
+            if (sourceNode == null)
+                continue;
+                
+            foreach (var targetId in source.ConnectedArtists)
+            {
+                var targetNode = _nodes.FirstOrDefault(n => n.Id == targetId);
+                if (targetNode == null)
+                    continue;
+                    
+                _links.Add(new LinkData
+                {
+                    Source = sourceNode,
+                    Target = targetNode
+                });
+            }
+        }
+    }
+    
+    private float GetNodeRadius(NodeData node)
+    {
+        // Base size for all nodes
+        float baseSize = 20;
+        
+        // Adjust size for main artist
+        if (node.IsMainArtist)
+            baseSize = 30;
+            
+        // If popularity-based sizing is enabled
+        if (PopularityBasedSize && node.Popularity > 0)
+        {
+            // Scale from 15-40 based on popularity
+            return baseSize * (0.5f + (node.Popularity / 100f));
+        }
+        
+        return baseSize;
+    }
+    
+    private string GetNodeColor(NodeData node)
+    {
+        if (node.IsMainArtist)
+            return "#1DB954"; // Spotify green for main artist
+            
+        // Color based on popularity
+        if (node.Popularity >= 80)
+            return "#FF4500"; // High popularity
+        else if (node.Popularity >= 60)
+            return "#FFA500"; // Medium-high popularity
+        else if (node.Popularity >= 40)
+            return "#6A5ACD"; // Medium popularity
+        else if (node.Popularity >= 20)
+            return "#4169E1"; // Medium-low popularity
+        else
+            return "#708090"; // Low popularity
+    }
+    
+    private async Task OnNodeClick(NodeData node)
+    {
+        await OnArtistSelected.InvokeAsync(node.Id);
+    }
+    
+    private void OnNodeHover(NodeData node, bool isHovered)
+    {
+        if (isHovered)
+        {
+            _hoveredNode = node;
+            // Calculate tooltip position (will be updated by JS)
+            _tooltipX = node.X + 500; // Offset from center of viewBox
+            _tooltipY = node.Y + 500;
+            
+            // Highlight the node
+            node.IsHovered = true;
+        }
+        else
+        {
+            // Remove highlight
+            node.IsHovered = false;
+            _hoveredNode = null;
+        }
+        
+        StateHasChanged();
+    }
+    
+    private async Task ZoomIn()
+    {
+        await JSRuntime.InvokeVoidAsync("zoomNetworkGraph", 1.2);
+    }
+    
+    private async Task ZoomOut()
+    {
+        await JSRuntime.InvokeVoidAsync("zoomNetworkGraph", 0.8);
+    }
+    
+    private async Task ResetZoom()
+    {
+        await JSRuntime.InvokeVoidAsync("resetNetworkGraph");
+    }
+    
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+}

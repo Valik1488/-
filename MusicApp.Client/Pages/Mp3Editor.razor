@@ -1,0 +1,606 @@
+@page "/mp3-editor"
+@using MusicApp.Shared.Models
+@using System.IO
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">MP3 Metadata Editor</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Edit your MP3 file tags and album art</MudText>
+    </MudPaper>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2" Class="h-100 mp3-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="mr-2" Color="Color.Primary" />
+                            <MudText Typo="Typo.h5">Upload MP3 File</MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Select an MP3 file to edit its metadata</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                
+                <MudCardContent>
+                    <MudPaper Elevation="0" Class="pa-4 mud-background-gray rounded-lg">
+                        <InputFile id="fileInput" OnChange="OnInputFileChange" accept=".mp3" Class="mb-3" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Maximum file size: 50MB</MudText>
+                    </MudPaper>
+                    
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="my-3" Dense="true">@errorMessage</MudAlert>
+                    }
+                    
+                    @if (isUploading)
+                    {
+                        <div class="d-flex align-center my-4">
+                            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="flex-grow-1 mr-2" />
+                            <MudText Typo="Typo.caption">Processing...</MudText>
+                        </div>
+                    }
+                    
+                    @if (metadata != null)
+                    {
+                        <MudDivider Class="my-4" />
+                        
+                        <MudText Typo="Typo.body1" Class="mb-3 d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="mr-2" Color="Color.Primary" />
+                            Current file: <strong class="ml-1">@fileName</strong>
+                        </MudText>
+                        
+                        <MudExpansionPanels DisableBorders="true" Elevation="0" Class="mt-3">
+                            <MudExpansionPanel IsInitiallyExpanded="true">
+                                <TitleContent>
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" Color="Color.Primary" />
+                                        <MudText Typo="Typo.h6">Basic Information</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudForm @ref="form" Model="@metadata" Class="mt-2">
+                                        <MudGrid Spacing="2">
+                                            <MudItem xs="12">
+                                                <MudTextField @bind-Value="metadata.Title" Label="Title" 
+                                                         Required="true" RequiredError="Title is required"
+                                                         Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6">
+                                                <MudTextField @bind-Value="metadata.Artist" Label="Artist" 
+                                                         Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6">
+                                                <MudTextField @bind-Value="metadata.Album" Label="Album" 
+                                                         Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6">
+                                                <MudTextField @bind-Value="metadata.Year" Label="Year" 
+                                                         T="string" InputType="InputType.Number"
+                                                         Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6">
+                                                <MudTextField @bind-Value="metadata.TrackNumber" Label="Track Number" 
+                                                         T="string" InputType="InputType.Number"
+                                                         Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                            <MudItem xs="12">
+                                                <MudTextField @bind-Value="metadata.Genre" Label="Genre" 
+                                                         HelperText="Separate multiple genres with commas"
+                                                         Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                            <MudItem xs="12">
+                                                <MudTextField @bind-Value="metadata.Comment" Label="Comment" 
+                                                         Lines="3" Variant="Variant.Outlined" FullWidth="true" />
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudForm>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                            
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.Image" Class="mr-2" Color="Color.Primary" />
+                                        <MudText Typo="Typo.h6">Album Art</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <div class="d-flex justify-center my-4">
+                                        <div class="album-art-container">
+                                            @if (metadata.HasAlbumArt || albumArtUrl != null)
+                                            {
+                                                <img src="@(albumArtUrl ?? $"data:{metadata.AlbumArtMimeType};base64,{Convert.ToBase64String(metadata.AlbumArt!)}")" 
+                                                     alt="Album Art" class="album-art-image" />
+                                            }
+                                            else
+                                            {
+                                                <div class="album-art-placeholder">
+                                                    <MudIcon Icon="@Icons.Material.Filled.MusicNote" Size="Size.Large" Color="Color.Secondary" />
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    
+                                    <MudPaper Elevation="0" Class="pa-4 mud-background-gray rounded-lg mt-3">
+                                        <MudText Typo="Typo.body2" Class="mb-2">Upload new album art:</MudText>
+                                        <InputFile id="albumArtInput" OnChange="OnAlbumArtChange" accept="image/*" Class="mb-2" />
+                                    </MudPaper>
+                                    
+                                    <MudPaper Elevation="0" Class="pa-3 rounded-lg mt-3">
+                                        <MudCheckBox T="bool" @bind-Checked="preserveExistingAlbumArt" 
+                                                  Color="Color.Primary"
+                                                  Disabled="newAlbumArtFile != null || !metadata.HasAlbumArt"
+                                                  Label="Keep existing album art" Class="mb-1" />
+                                        
+                                        <MudCheckBox T="bool" @bind-Checked="removeAlbumArt" 
+                                                  Color="Color.Primary"
+                                                  Disabled="newAlbumArtFile != null"
+                                                  Label="Remove album art" />
+                                    </MudPaper>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                        
+                        <MudDivider Class="my-4" />
+                        
+                        <div class="d-flex justify-space-between mt-4">
+                            <MudButton Variant="Variant.Text" 
+                                     Color="Color.Secondary" 
+                                     OnClick="ResetForm"
+                                     StartIcon="@Icons.Material.Filled.Refresh">
+                                Reset
+                            </MudButton>
+                            
+                            <MudButton Variant="Variant.Filled" 
+                                     Color="Color.Primary" 
+                                     OnClick="SaveMetadata"
+                                     StartIcon="@Icons.Material.Filled.Save"
+                                     Size="Size.Large">
+                                Save Changes
+                            </MudButton>
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2" Class="h-100 mp3-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayCircleFilled" Class="mr-2" Color="Color.Primary" />
+                            <MudText Typo="Typo.h5">Audio Player</MudText>
+                        </div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Preview your MP3 file</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                
+                <MudCardContent Class="d-flex flex-column justify-center">
+                    @if (metadata != null)
+                    {
+                        <div class="d-flex flex-column align-center">
+                            @if (metadata.HasAlbumArt || albumArtUrl != null)
+                            {
+                                <div class="mb-6 mt-2">
+                                    <div class="album-preview-container">
+                                        <img src="@(albumArtUrl ?? $"data:{metadata.AlbumArtMimeType};base64,{Convert.ToBase64String(metadata.AlbumArt!)}")" 
+                                             alt="Album Art" class="album-preview-image" />
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="mb-6 mt-2">
+                                    <div class="album-preview-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.MusicNote" Size="Size.Large" />
+                                    </div>
+                                </div>
+                            }
+                            
+                            <div class="text-center mb-4">
+                                <MudText Typo="Typo.h5" Class="mb-1">@(metadata.Title ?? "Untitled")</MudText>
+                                <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@(string.IsNullOrEmpty(metadata.Artist) ? "Unknown Artist" : metadata.Artist)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@(string.IsNullOrEmpty(metadata.Album) ? "" : metadata.Album) @(!string.IsNullOrEmpty(metadata.Year) ? $"({metadata.Year})" : "")</MudText>
+                                
+                                @if (!string.IsNullOrEmpty(metadata.Genre))
+                                {
+                                    <div class="d-flex align-center justify-center mt-2 flex-wrap">
+                                        @foreach (var genre in metadata.Genre.Split(',').Select(g => g.Trim()).Take(3))
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="ma-1">@genre</MudChip>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(previewUrl))
+                            {
+                                <div class="w-100 mt-2 player-container">
+                                    <audio controls class="w-100 audio-player">
+                                        <source src="@previewUrl" type="audio/mpeg">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                </div>
+                            }
+                            else
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">
+                                    Save changes to preview the audio here
+                                </MudAlert>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column align-center justify-center empty-state">
+                            <MudIcon Icon="@Icons.Material.Filled.AudioFile" Size="Size.Large" Color="Color.Secondary" Class="mb-4" />
+                            <MudText Align="Align.Center" Color="Color.Secondary" Typo="Typo.h6" Class="mb-2">
+                                No MP3 File Selected
+                            </MudText>
+                            <MudText Align="Align.Center" Color="Color.Secondary">
+                                Upload an MP3 file to edit metadata and preview audio
+                            </MudText>
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private IBrowserFile? browserFile;
+    private string? fileName;
+    private Mp3Metadata? metadata;
+    private bool isUploading = false;
+    private string errorMessage = string.Empty;
+    private string previewUrl = string.Empty;
+    private MudForm? form;
+    
+    // Album art related fields
+    private IBrowserFile? newAlbumArtFile;
+    private string? albumArtUrl;
+    private bool preserveExistingAlbumArt = true;
+    private bool removeAlbumArt = false;
+    
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        try {
+            errorMessage = string.Empty;
+            
+            browserFile = e.File;
+            fileName = e.File.Name;
+            
+            // Reset album art fields
+            newAlbumArtFile = null;
+            albumArtUrl = null;
+            preserveExistingAlbumArt = true;
+            removeAlbumArt = false;
+            
+            // Verify it's an MP3 file
+            if (!browserFile.ContentType.Equals("audio/mpeg") && !Path.GetExtension(browserFile.Name).Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "Only MP3 files are allowed.";
+                browserFile = null;
+                return;
+            }
+            
+            // Check file size (50MB max)
+            if (browserFile.Size > 52428800)
+            {
+                errorMessage = "File size exceeds the 50MB limit.";
+                browserFile = null;
+                return;
+            }
+            
+            isUploading = true;
+            
+            // Create a new MultipartFormDataContent
+            using var content = new MultipartFormDataContent();
+            
+            // Convert the file to stream content
+            var fileContent = new StreamContent(browserFile.OpenReadStream(52428800)); // 50MB max
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            
+            // Add the file to the form data
+            content.Add(fileContent, "file", browserFile.Name);
+            
+            // Send the file to the API
+            var response = await Http.PostAsync("api/Mp3/upload", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                metadata = await response.Content.ReadFromJsonAsync<Mp3Metadata>();
+                
+                if (metadata != null)
+                {
+                    // If title is empty, use the filename without extension
+                    if (string.IsNullOrEmpty(metadata.Title))
+                    {
+                        metadata.Title = Path.GetFileNameWithoutExtension(browserFile.Name);
+                    }
+                    
+                    // Create an object URL for the file
+                    previewUrl = await CreateObjectUrlFromFile(browserFile);
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Error: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+    
+    private async Task OnAlbumArtChange(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            newAlbumArtFile = e.File;
+            
+            // When selecting a new album art file, disable other options
+            preserveExistingAlbumArt = false;
+            removeAlbumArt = false;
+            
+            // Check file size (5MB max for album art)
+            if (newAlbumArtFile.Size > 5242880)
+            {
+                errorMessage = "Album art file size exceeds the 5MB limit.";
+                newAlbumArtFile = null;
+                return;
+            }
+            
+            // Create a preview for the selected image
+            using var memoryStream = new MemoryStream();
+            await newAlbumArtFile.OpenReadStream(5242880).CopyToAsync(memoryStream);
+            var imageBytes = memoryStream.ToArray();
+            
+            // Create data URL for preview
+            albumArtUrl = $"data:{newAlbumArtFile.ContentType};base64,{Convert.ToBase64String(imageBytes)}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading album art: {ex.Message}";
+            newAlbumArtFile = null;
+            albumArtUrl = null;
+        }
+    }
+    
+    private async Task SaveMetadata()
+    {
+        if (browserFile == null || metadata == null)
+            return;
+            
+        try
+        {
+            isUploading = true;
+            errorMessage = string.Empty;
+            
+            // Create a new MultipartFormDataContent
+            using var content = new MultipartFormDataContent();
+            
+            // Convert the file to stream content
+            var fileContent = new StreamContent(browserFile.OpenReadStream(52428800)); // 50MB max
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+            
+            // Add the file to the form data
+            content.Add(fileContent, "File", browserFile.Name);
+            
+            // Add metadata properties
+            content.Add(new StringContent(metadata.Title ?? ""), "Metadata.Title");
+            content.Add(new StringContent(metadata.Artist ?? ""), "Metadata.Artist");
+            content.Add(new StringContent(metadata.Album ?? ""), "Metadata.Album");
+            content.Add(new StringContent(metadata.Year ?? ""), "Metadata.Year");
+            content.Add(new StringContent(metadata.Genre ?? ""), "Metadata.Genre");
+            content.Add(new StringContent(metadata.Comment ?? ""), "Metadata.Comment");
+            content.Add(new StringContent(metadata.TrackNumber ?? ""), "Metadata.TrackNumber");
+            
+            // Add album art file if a new one was selected
+            if (newAlbumArtFile != null)
+            {
+                var albumArtContent = new StreamContent(newAlbumArtFile.OpenReadStream(5242880)); // 5MB max
+                albumArtContent.Headers.ContentType = new MediaTypeHeaderValue(newAlbumArtFile.ContentType);
+                content.Add(albumArtContent, "AlbumArtFile", newAlbumArtFile.Name);
+            }
+            else
+            {
+                // Set flags for album art handling
+                content.Add(new StringContent(preserveExistingAlbumArt.ToString()), "Metadata.PreserveExistingAlbumArt");
+                content.Add(new StringContent(removeAlbumArt.ToString()), "RemoveAlbumArt");
+            }
+            
+            // Send the file with updated metadata to the API
+            var response = await Http.PostAsync("api/Mp3/update", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // Get the file content
+                var fileBytes = await response.Content.ReadAsByteArrayAsync();
+                
+                // Create a new object URL for the updated file
+                previewUrl = await CreateObjectUrlFromBytes(fileBytes);
+                
+                // Download the file
+                await DownloadFileFromBytes(fileBytes, metadata.Title ?? fileName ?? "updated.mp3");
+                
+                Snackbar.Add("Metadata updated successfully!", Severity.Success);
+                
+                // Reset album art selection
+                newAlbumArtFile = null;
+                albumArtUrl = null;
+                removeAlbumArt = false;
+                preserveExistingAlbumArt = true;
+                
+                // Update the browser file with the new version
+                await OnInputFileChange(new InputFileChangeEventArgs(new List<IBrowserFile> { browserFile }));
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Error: {error}";
+                Snackbar.Add($"Error: {error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            Snackbar.Add($"An error occurred: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+    
+    private void ResetForm()
+    {
+        if (form != null)
+        {
+            form.ResetValidation();
+        }
+        
+        // Reset album art selection
+        newAlbumArtFile = null;
+        albumArtUrl = null;
+        removeAlbumArt = false;
+        preserveExistingAlbumArt = true;
+    }
+    
+    private async Task<string> CreateObjectUrlFromFile(IBrowserFile file)
+    {
+        // Read file bytes
+        using var memoryStream = new MemoryStream();
+        await file.OpenReadStream(52428800).CopyToAsync(memoryStream); // 50MB max
+        byte[] fileBytes = memoryStream.ToArray();
+        
+        // Create an object URL for the audio player
+        return await JSRuntime.InvokeAsync<string>("createObjectURL", fileBytes, "audio/mpeg");
+    }
+    
+    private async Task<string> CreateObjectUrlFromBytes(byte[] fileBytes)
+    {
+        // Create an object URL for the audio player
+        return await JSRuntime.InvokeAsync<string>("createObjectURL", fileBytes, "audio/mpeg");
+    }
+    
+    private async Task DownloadFileFromBytes(byte[] fileBytes, string fileName)
+    {
+        // Download the file
+        await JSRuntime.InvokeVoidAsync("downloadFileFromBytes", fileBytes, fileName);
+    }
+}
+
+<style>
+    /* Custom styles for better appearance */
+    .mp3-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        overflow: hidden;
+    }
+    
+    .mp3-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    
+    .album-art-container {
+        width: 200px;
+        height: 200px;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        background-color: #f5f5f5;
+    }
+    
+    .album-art-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .album-art-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #1DB954 0%, #191414 100%);
+        color: white;
+    }
+    
+    .album-preview-container {
+        width: 180px;
+        height: 180px;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    }
+    
+    .album-preview-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .album-preview-placeholder {
+        width: 180px;
+        height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #1DB954 0%, #191414 100%);
+        color: white;
+    }
+    
+    .player-container {
+        padding: 10px;
+        background-color: #f5f5f5;
+        border-radius: 8px;
+    }
+    
+    .audio-player {
+        border-radius: 4px;
+    }
+    
+    .empty-state {
+        height: 300px;
+    }
+</style>
+
+<script>
+    // Create an object URL from a byte array for audio previewing
+    window.createObjectURL = (byteArray, contentType) => {
+        const blob = new Blob([byteArray], { type: contentType });
+        const url = URL.createObjectURL(blob);
+        return url;
+    };
+
+    // Download file from byte array
+    window.downloadFileFromBytes = (byteArray, fileName) => {
+        const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the URL object
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    };
+</script>
