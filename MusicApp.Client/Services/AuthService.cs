@@ -3,7 +3,6 @@ using MusicApp.Client.Interfaces;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Net.Http.Json;
-using System.Net.Http.Headers;
 using MusicApp.Shared.Models;
 
 namespace MusicApp.Client.Services;
@@ -36,19 +35,20 @@ public class AuthService : IAuthService
             return false;
 
         await _localStorage.SetItemAsync("authToken", token);
-
-        // 🔥 ДОДАНО: встановлення токена в HttpClient
-        await SetAuthHeader();
-
+        
+        // Check if the auth state provider is our custom provider before casting
         if (_authStateProvider is CustomAuthStateProvider customProvider)
         {
             customProvider.NotifyAuthenticationStateChanged();
         }
         else
         {
+            // Handle the case when it's not our custom provider
+            // You might need a different approach depending on your architecture
+            // This could involve using a service to notify components about auth changes
             Console.WriteLine("Warning: Using default auth state provider, manual state refresh might be needed");
         }
-
+        
         return true;
     }
 
@@ -63,25 +63,11 @@ public class AuthService : IAuthService
         return await _localStorage.GetItemAsync<string>("authToken");
     }
 
-    // 🔥 НОВИЙ МЕТОД
-    public async Task SetAuthHeader()
-    {
-        var token = await GetToken();
-
-        if (!string.IsNullOrEmpty(token))
-        {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
-        }
-    }
-
     public async Task Logout()
     {
         await _localStorage.RemoveItemAsync("authToken");
-
-        // 🔥 очищаємо заголовок
-        _httpClient.DefaultRequestHeaders.Authorization = null;
-
+        
+        // Similar pattern as in HandleSpotifyCallbackAsync
         if (_authStateProvider is CustomAuthStateProvider customProvider)
         {
             customProvider.NotifyAuthenticationStateChanged();

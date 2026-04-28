@@ -7,5 +7,4 @@ public interface IAuthService
     Task<bool> IsUserAuthenticated();
     Task<string> GetToken();
     Task Logout();
-    Task SetAuthHeader();
 }
