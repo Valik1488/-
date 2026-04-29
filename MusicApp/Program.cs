@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
@@ -17,9 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddMudServices();
 
 builder.Services.AddControllers();
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(
+    options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAuthentication(options =>
@@ -97,3 +97,4 @@ app.MapRazorComponents<App>()
 app.MapControllers();
 
 app.Run();
+ 
