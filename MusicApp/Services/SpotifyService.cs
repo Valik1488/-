@@ -774,5 +774,65 @@ namespace MusicApp.Services
         {
             public List<SpotifyAlbumDto>? Albums { get; set; }
         }
+
+        public List<SpotifyArtistDto> AnalyzeArtistsDeep(List<SpotifyArtistDto> artists)
+{
+    if (artists == null || artists.Count == 0)
+        return artists ?? new List<SpotifyArtistDto>();
+
+    try
+    {
+        var genreFrequency = new Dictionary<string, int>();
+
+        foreach (var a in artists)
+        {
+            if (a.Genres == null) continue;
+
+            foreach (var g in a.Genres)
+            {
+                if (string.IsNullOrWhiteSpace(g)) continue;
+
+                if (genreFrequency.ContainsKey(g))
+                    genreFrequency[g]++;
+                else
+                    genreFrequency[g] = 1;
+            }
+        }
+
+        var result = artists
+            .Select(a =>
+            {
+                double popularity = a.Popularity ?? 0;
+                int genreCount = a.Genres?.Count ?? 0;
+
+                double rarity = 0;
+
+                if (a.Genres != null)
+                {
+                    foreach (var g in a.Genres)
+                    {
+                        if (genreFrequency.TryGetValue(g, out var count) && count > 0)
+                            rarity += 1.0 / count;
+                    }
+                }
+
+                double score =
+                    (popularity * 0.5) +
+                    (genreCount * 10 * 0.3) +
+                    (rarity * 50 * 0.2);
+
+                return new { a, score };
+            })
+            .OrderByDescending(x => x.score)
+            .Select(x => x.a)
+            .ToList();
+
+        return result;
+    }
+    catch
+    {
+        return artists;
+    }
+}
     }
 }

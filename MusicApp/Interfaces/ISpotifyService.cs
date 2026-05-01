@@ -17,5 +17,6 @@ namespace MusicApp.Interfaces
         Task<List<string>> GetArtistAlbumsAsync(string accessToken, string artistId);
         Task<List<RelatedArtistDto>> GetRelatedArtistsAsync(string accessToken, string artistId);
         Task<List<SpotifyArtistDto>> GetArtistsDataAsync(string accessToken, List<string> artistIds);
+        List<SpotifyArtistDto> AnalyzeArtistsDeep(List<SpotifyArtistDto> artists);
     }
 }
