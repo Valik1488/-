@@ -6,8 +6,8 @@
 
 <MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
     <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
-        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Connect with Spotify</MudText>
-        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Login to access all features of the application</MudText>
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Підключення до Spotify</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Увійдіть, щоб отримати доступ до всіх можливостей застосунку</MudText>
     </MudPaper>
 
     <MudGrid>
@@ -16,41 +16,41 @@
                 <MudCardContent>
                     <div class="d-flex flex-column align-center mb-6">
                         <MudIcon Icon="@Icons.Material.Filled.MusicNote" Color="Color.Success" Style="font-size: 64px; margin-bottom: 16px;" />
-                        <MudText Typo="Typo.h5" Align="Align.Center">Sign In to Your Spotify Account</MudText>
+                        <MudText Typo="Typo.h5" Align="Align.Center">Увійдіть у свій обліковий запис Spotify</MudText>
                         <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-2">
-                            Connect your Spotify account to browse your music, discover artists, and more.
+                            Підключіть свій обліковий запис Spotify, щоб переглядати музику, відкривати нових виконавців та інше.
                         </MudText>
                     </div>
-                    
+
                     @if (isLoading)
                     {
                         <div class="d-flex justify-center my-4">
                             <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
                         </div>
-                        <MudText Align="Align.Center">Preparing login...</MudText>
+                        <MudText Align="Align.Center">Підготовка входу...</MudText>
                     }
                     else if (!string.IsNullOrEmpty(errorMessage))
                     {
                         <MudAlert Severity="Severity.Error" Class="my-4" Variant="Variant.Filled">@errorMessage</MudAlert>
                         <div class="d-flex justify-center mt-4">
-                            <MudButton Variant="Variant.Filled" 
-                                      Color="Color.Primary" 
+                            <MudButton Variant="Variant.Filled"
+                                      Color="Color.Primary"
                                       OnClick="RetryLogin"
                                       StartIcon="@Icons.Material.Filled.Refresh">
-                                Retry
+                                Спробувати ще раз
                             </MudButton>
                         </div>
                     }
                     else
                     {
                         <div class="d-flex justify-center">
-                            <MudButton Variant="Variant.Filled" 
-                                      Color="Color.Success" 
+                            <MudButton Variant="Variant.Filled"
+                                      Color="Color.Success"
                                       StartIcon="@Icons.Material.Filled.MusicNote"
                                       Size="Size.Large"
                                       Style="padding: 12px 24px;"
                                       OnClick="LoginWithSpotify">
-                                Connect with Spotify
+                                Підключитися до Spotify
                             </MudButton>
                         </div>
                     }
@@ -59,11 +59,11 @@
                 <MudDivider Class="my-4" />
 
                 <MudCardActions>
-                    <MudButton Variant="Variant.Text" 
+                    <MudButton Variant="Variant.Text"
                               Color="Color.Default"
                               Href="/"
                               StartIcon="@Icons.Material.Filled.ArrowBack">
-                        Back to Home
+                        Назад на головну
                     </MudButton>
                 </MudCardActions>
             </MudCard>
@@ -72,7 +72,7 @@
                 <MudText Typo="Typo.subtitle2" Style="color: #1DB954;">
                     <span class="d-flex align-center">
                         <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-2" />
-                        By connecting, you'll authorize this app to access your Spotify data according to our privacy policy.
+                        Підключаючись, Ви надаєте цьому застосунку доступ до Ваших даних Spotify відповідно до нашої політики конфіденційності.
                     </span>
                 </MudText>
             </MudPaper>
@@ -90,14 +90,13 @@
         {
             isLoading = true;
             var loginUrl = await AuthService.GetSpotifyLoginUrlAsync();
-            
-            // Redirect to Spotify authorization page
+
             NavigationManager.NavigateTo(loginUrl);
         }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to start login process: {ex.Message}";
-            Console.WriteLine($"Login error: {ex}");
+            errorMessage = $"Не вдалося розпочати процес входу: {ex.Message}";
+            Console.WriteLine($"Помилка входу: {ex}");
         }
         finally
         {

@@ -11,10 +11,10 @@
 
 <MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
     <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
-        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Your Spotify Playlists</MudText>
-        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Discover and manage your music collections</MudText>
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Ваші плейлисти Spotify</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Переглядайте та керуйте своїми музичними колекціями</MudText>
     </MudPaper>
-    
+
     @if (_isLoading)
     {
         <div class="d-flex justify-center align-center" style="height: 300px;">
@@ -23,13 +23,13 @@
     }
     else if (_playlists != null && _playlists.Count > 0)
     {
-        <MudTextField @bind-Value="_searchTerm" 
-                     Placeholder="Search playlists..." 
-                     Adornment="Adornment.Start" 
-                     AdornmentIcon="@Icons.Material.Filled.Search" 
+        <MudTextField @bind-Value="_searchTerm"
+                     Placeholder="Пошук плейлистів..."
+                     Adornment="Adornment.Start"
+                     AdornmentIcon="@Icons.Material.Filled.Search"
                      Immediate="true"
                      Class="mb-4" />
-        
+
         <MudGrid>
             @foreach (var playlist in FilteredPlaylists)
             {
@@ -48,7 +48,7 @@
                             }
                             <div class="playlist-hover-content">
                                 <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Large" Color="Color.Inherit" />
-                                <MudText Typo="Typo.body1" Style="margin-top: 8px;">View Details</MudText>
+                                <MudText Typo="Typo.body1" Style="margin-top: 8px;">Переглянути деталі</MudText>
                             </div>
                         </div>
                         <MudCardContent>
@@ -58,66 +58,66 @@
                                 <MudText Typo="Typo.body2" Class="mud-text-ellipsis mud-text-ellipsis-two-line">@((MarkupString)playlist.Description)</MudText>
                             }
                             <div class="d-flex align-center mt-2">
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@playlist.Tracks?.Total tracks</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@playlist.Tracks?.Total треків</MudChip>
                                 @if (playlist.Tracks?.Total <= 300)
                                 {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="margin-left: 8px;">Recommendations Available</MudChip>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="margin-left: 8px;">Рекомендації доступні</MudChip>
                                 }
                                 else
                                 {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Style="margin-left: 8px;">Too Large for Recommendations</MudChip>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Style="margin-left: 8px;">Завеликий для рекомендацій</MudChip>
                                 }
                             </div>
                         </MudCardContent>
                         <MudCardActions Class="d-flex justify-space-between">
-                            <MudButton StartIcon="@Icons.Material.Filled.MusicNote" 
-                                      Variant="Variant.Text" 
-                                      Color="Color.Primary" 
+                            <MudButton StartIcon="@Icons.Material.Filled.MusicNote"
+                                      Variant="Variant.Text"
+                                      Color="Color.Primary"
                                       OnClick="@(() => OpenSpotifyPlaylist(playlist.Id!))">
-                                Open
+                                Відкрити
                             </MudButton>
-                            <MudIconButton Icon="@Icons.Material.Filled.Bookmark" 
-                                         Color="@(HasStoredRecommendations(playlist.Id!) ? Color.Secondary : Color.Default)" 
-                                         OnClick="@(() => NavigateToPlaylistDetails(playlist.Id!))" 
-                                         Title="View Details & Recommendations" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Bookmark"
+                                         Color="@(HasStoredRecommendations(playlist.Id!) ? Color.Secondary : Color.Default)"
+                                         OnClick="@(() => NavigateToPlaylistDetails(playlist.Id!))"
+                                         Title="Переглянути деталі та рекомендації" />
                         </MudCardActions>
                     </MudCard>
                 </MudItem>
             }
         </MudGrid>
-        
+
         @if (!FilteredPlaylists.Any())
         {
-            <MudAlert Severity="Severity.Info" Class="mt-4">No playlists match your search.</MudAlert>
+            <MudAlert Severity="Severity.Info" Class="mt-4">Жоден плейлист не відповідає вашому пошуку.</MudAlert>
         }
     }
     else
     {
         <MudPaper Elevation="2" Class="pa-6 text-center">
             <MudIcon Icon="@Icons.Material.Filled.QueueMusic" Size="Size.Large" Style="opacity: 0.6;" />
-            <MudText Typo="Typo.h6" Class="mt-2">No playlists found in your Spotify account.</MudText>
-            <MudText Typo="Typo.body2" Class="mt-2">Create playlists in Spotify and they'll appear here.</MudText>
-            <MudButton StartIcon="@Icons.Material.Filled.MusicNote" 
-                      Variant="Variant.Filled" 
-                      Color="Color.Primary" 
+            <MudText Typo="Typo.h6" Class="mt-2">У вашому обліковому записі Spotify не знайдено плейлистів.</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">Створіть плейлисти в Spotify, і вони з’являться тут.</MudText>
+            <MudButton StartIcon="@Icons.Material.Filled.MusicNote"
+                      Variant="Variant.Filled"
+                      Color="Color.Primary"
                       OnClick="@(() => JSRuntime.InvokeVoidAsync("open", "https://open.spotify.com", "_blank"))"
                       Class="mt-4">
-                Open Spotify
+                Відкрити Spotify
             </MudButton>
         </MudPaper>
     }
-    
+
     <style>
         .playlist-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-        
+
         .playlist-hover-overlay {
             position: relative;
             cursor: pointer;
         }
-        
+
         .playlist-hover-overlay:hover::after {
             content: '';
             position: absolute;
@@ -130,7 +130,7 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .playlist-hover-content {
             position: absolute;
             top: 50%;
@@ -142,11 +142,11 @@
             z-index: 2;
             text-align: center;
         }
-        
+
         .playlist-hover-overlay:hover .playlist-hover-content {
             opacity: 1;
         }
-        
+
         .mud-text-ellipsis-two-line {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -162,14 +162,14 @@
     private bool _isLoading = true;
     private string _searchTerm = string.Empty;
     private Dictionary<string, bool> _storedRecommendationsCache = new();
-    
-    private IEnumerable<SpotifyPlaylistDto> FilteredPlaylists => 
-        _playlists?.Where(p => 
-            string.IsNullOrWhiteSpace(_searchTerm) || 
+
+    private IEnumerable<SpotifyPlaylistDto> FilteredPlaylists =>
+        _playlists?.Where(p =>
+            string.IsNullOrWhiteSpace(_searchTerm) ||
             p.Name?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-            p.Description?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true) 
+            p.Description?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true)
         ?? Enumerable.Empty<SpotifyPlaylistDto>();
-    
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -180,7 +180,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error loading playlists: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Помилка завантаження плейлистів: {ex.Message}", Severity.Error);
             _playlists = new List<SpotifyPlaylistDto>();
         }
         finally
@@ -188,7 +188,7 @@
             _isLoading = false;
         }
     }
-    
+
     private async Task LoadStoredRecommendationsCache()
     {
         try
@@ -202,21 +202,21 @@
         }
         catch
         {
-            // Fallback if the localStorage.getKeys function isn't available
+            // Резервний варіант, якщо функція localStorage.getKeys недоступна
             _storedRecommendationsCache = new Dictionary<string, bool>();
         }
     }
-    
+
     private bool HasStoredRecommendations(string playlistId)
     {
         return _storedRecommendationsCache.ContainsKey(playlistId);
     }
-    
+
     private void OpenSpotifyPlaylist(string playlistId)
     {
         JSRuntime.InvokeVoidAsync("open", $"https://open.spotify.com/playlist/{playlistId}", "_blank");
     }
-    
+
     private void NavigateToPlaylistDetails(string playlistId)
     {
         var playlist = _playlists?.FirstOrDefault(p => p.Id == playlistId);

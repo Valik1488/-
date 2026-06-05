@@ -8,8 +8,8 @@
 
 <MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
     <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
-        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">MP3 Metadata Editor</MudText>
-        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Edit your MP3 file tags and album art</MudText>
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Редактор метаданих MP3</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Редагуйте теги MP3-файлів та обкладинку альбому</MudText>
     </MudPaper>
 
     <MudGrid Spacing="4">
@@ -19,93 +19,93 @@
                     <CardHeaderContent>
                         <div class="d-flex align-center">
                             <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="mr-2" Color="Color.Primary" />
-                            <MudText Typo="Typo.h5">Upload MP3 File</MudText>
+                            <MudText Typo="Typo.h5">Завантажити MP3-файл</MudText>
                         </div>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Select an MP3 file to edit its metadata</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Оберіть MP3-файл для редагування метаданих</MudText>
                     </CardHeaderContent>
                 </MudCardHeader>
-                
+
                 <MudCardContent>
                     <MudPaper Elevation="0" Class="pa-4 mud-background-gray rounded-lg">
                         <InputFile id="fileInput" OnChange="OnInputFileChange" accept=".mp3" Class="mb-3" />
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Maximum file size: 50MB</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Максимальний розмір файлу: 50MB</MudText>
                     </MudPaper>
-                    
+
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
                         <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="my-3" Dense="true">@errorMessage</MudAlert>
                     }
-                    
+
                     @if (isUploading)
                     {
                         <div class="d-flex align-center my-4">
                             <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="flex-grow-1 mr-2" />
-                            <MudText Typo="Typo.caption">Processing...</MudText>
+                            <MudText Typo="Typo.caption">Обробка...</MudText>
                         </div>
                     }
-                    
+
                     @if (metadata != null)
                     {
                         <MudDivider Class="my-4" />
-                        
+
                         <MudText Typo="Typo.body1" Class="mb-3 d-flex align-center">
                             <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="mr-2" Color="Color.Primary" />
-                            Current file: <strong class="ml-1">@fileName</strong>
+                            Поточний файл: <strong class="ml-1">@fileName</strong>
                         </MudText>
-                        
+
                         <MudExpansionPanels DisableBorders="true" Elevation="0" Class="mt-3">
                             <MudExpansionPanel IsInitiallyExpanded="true">
                                 <TitleContent>
                                     <div class="d-flex align-center">
                                         <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" Color="Color.Primary" />
-                                        <MudText Typo="Typo.h6">Basic Information</MudText>
+                                        <MudText Typo="Typo.h6">Основна інформація</MudText>
                                     </div>
                                 </TitleContent>
                                 <ChildContent>
                                     <MudForm @ref="form" Model="@metadata" Class="mt-2">
                                         <MudGrid Spacing="2">
                                             <MudItem xs="12">
-                                                <MudTextField @bind-Value="metadata.Title" Label="Title" 
-                                                         Required="true" RequiredError="Title is required"
+                                                <MudTextField @bind-Value="metadata.Title" Label="Назва"
+                                                         Required="true" RequiredError="Назва є обов’язковою"
                                                          Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                             <MudItem xs="12" sm="6">
-                                                <MudTextField @bind-Value="metadata.Artist" Label="Artist" 
+                                                <MudTextField @bind-Value="metadata.Artist" Label="Виконавець"
                                                          Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                             <MudItem xs="12" sm="6">
-                                                <MudTextField @bind-Value="metadata.Album" Label="Album" 
+                                                <MudTextField @bind-Value="metadata.Album" Label="Альбом"
                                                          Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                             <MudItem xs="12" sm="6">
-                                                <MudTextField @bind-Value="metadata.Year" Label="Year" 
+                                                <MudTextField @bind-Value="metadata.Year" Label="Рік"
                                                          T="string" InputType="InputType.Number"
                                                          Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                             <MudItem xs="12" sm="6">
-                                                <MudTextField @bind-Value="metadata.TrackNumber" Label="Track Number" 
+                                                <MudTextField @bind-Value="metadata.TrackNumber" Label="Номер треку"
                                                          T="string" InputType="InputType.Number"
                                                          Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                             <MudItem xs="12">
-                                                <MudTextField @bind-Value="metadata.Genre" Label="Genre" 
-                                                         HelperText="Separate multiple genres with commas"
+                                                <MudTextField @bind-Value="metadata.Genre" Label="Жанр"
+                                                         HelperText="Розділяйте кілька жанрів комами"
                                                          Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                             <MudItem xs="12">
-                                                <MudTextField @bind-Value="metadata.Comment" Label="Comment" 
+                                                <MudTextField @bind-Value="metadata.Comment" Label="Коментар"
                                                          Lines="3" Variant="Variant.Outlined" FullWidth="true" />
                                             </MudItem>
                                         </MudGrid>
                                     </MudForm>
                                 </ChildContent>
                             </MudExpansionPanel>
-                            
+
                             <MudExpansionPanel>
                                 <TitleContent>
                                     <div class="d-flex align-center">
                                         <MudIcon Icon="@Icons.Material.Filled.Image" Class="mr-2" Color="Color.Primary" />
-                                        <MudText Typo="Typo.h6">Album Art</MudText>
+                                        <MudText Typo="Typo.h6">Обкладинка альбому</MudText>
                                     </div>
                                 </TitleContent>
                                 <ChildContent>
@@ -113,8 +113,8 @@
                                         <div class="album-art-container">
                                             @if (metadata.HasAlbumArt || albumArtUrl != null)
                                             {
-                                                <img src="@(albumArtUrl ?? $"data:{metadata.AlbumArtMimeType};base64,{Convert.ToBase64String(metadata.AlbumArt!)}")" 
-                                                     alt="Album Art" class="album-art-image" />
+                                                <img src="@(albumArtUrl ?? $"data:{metadata.AlbumArtMimeType};base64,{Convert.ToBase64String(metadata.AlbumArt!)}")"
+                                                     alt="Обкладинка альбому" class="album-art-image" />
                                             }
                                             else
                                             {
@@ -124,62 +124,62 @@
                                             }
                                         </div>
                                     </div>
-                                    
+
                                     <MudPaper Elevation="0" Class="pa-4 mud-background-gray rounded-lg mt-3">
-                                        <MudText Typo="Typo.body2" Class="mb-2">Upload new album art:</MudText>
+                                        <MudText Typo="Typo.body2" Class="mb-2">Завантажити нову обкладинку:</MudText>
                                         <InputFile id="albumArtInput" OnChange="OnAlbumArtChange" accept="image/*" Class="mb-2" />
                                     </MudPaper>
-                                    
+
                                     <MudPaper Elevation="0" Class="pa-3 rounded-lg mt-3">
-                                        <MudCheckBox T="bool" @bind-Checked="preserveExistingAlbumArt" 
+                                        <MudCheckBox T="bool" @bind-Checked="preserveExistingAlbumArt"
                                                   Color="Color.Primary"
                                                   Disabled="newAlbumArtFile != null || !metadata.HasAlbumArt"
-                                                  Label="Keep existing album art" Class="mb-1" />
-                                        
-                                        <MudCheckBox T="bool" @bind-Checked="removeAlbumArt" 
+                                                  Label="Зберегти існуючу обкладинку" Class="mb-1" />
+
+                                        <MudCheckBox T="bool" @bind-Checked="removeAlbumArt"
                                                   Color="Color.Primary"
                                                   Disabled="newAlbumArtFile != null"
-                                                  Label="Remove album art" />
+                                                  Label="Видалити обкладинку" />
                                     </MudPaper>
                                 </ChildContent>
                             </MudExpansionPanel>
                         </MudExpansionPanels>
-                        
+
                         <MudDivider Class="my-4" />
-                        
+
                         <div class="d-flex justify-space-between mt-4">
-                            <MudButton Variant="Variant.Text" 
-                                     Color="Color.Secondary" 
+                            <MudButton Variant="Variant.Text"
+                                     Color="Color.Secondary"
                                      OnClick="ResetForm"
                                      StartIcon="@Icons.Material.Filled.Refresh">
-                                Reset
+                                Скинути
                             </MudButton>
-                            
-                            <MudButton Variant="Variant.Filled" 
-                                     Color="Color.Primary" 
+
+                            <MudButton Variant="Variant.Filled"
+                                     Color="Color.Primary"
                                      OnClick="SaveMetadata"
                                      StartIcon="@Icons.Material.Filled.Save"
                                      Size="Size.Large">
-                                Save Changes
+                                Зберегти зміни
                             </MudButton>
                         </div>
                     }
                 </MudCardContent>
             </MudCard>
         </MudItem>
-        
+
         <MudItem xs="12" md="6">
             <MudCard Elevation="2" Class="h-100 mp3-card">
                 <MudCardHeader>
                     <CardHeaderContent>
                         <div class="d-flex align-center">
                             <MudIcon Icon="@Icons.Material.Filled.PlayCircleFilled" Class="mr-2" Color="Color.Primary" />
-                            <MudText Typo="Typo.h5">Audio Player</MudText>
+                            <MudText Typo="Typo.h5">Аудіоплеєр</MudText>
                         </div>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Preview your MP3 file</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Попередній перегляд Вашого MP3-файлу</MudText>
                     </CardHeaderContent>
                 </MudCardHeader>
-                
+
                 <MudCardContent Class="d-flex flex-column justify-center">
                     @if (metadata != null)
                     {
@@ -188,8 +188,8 @@
                             {
                                 <div class="mb-6 mt-2">
                                     <div class="album-preview-container">
-                                        <img src="@(albumArtUrl ?? $"data:{metadata.AlbumArtMimeType};base64,{Convert.ToBase64String(metadata.AlbumArt!)}")" 
-                                             alt="Album Art" class="album-preview-image" />
+                                        <img src="@(albumArtUrl ?? $"data:{metadata.AlbumArtMimeType};base64,{Convert.ToBase64String(metadata.AlbumArt!)}")"
+                                             alt="Обкладинка альбому" class="album-preview-image" />
                                     </div>
                                 </div>
                             }
@@ -201,12 +201,12 @@
                                     </div>
                                 </div>
                             }
-                            
+
                             <div class="text-center mb-4">
-                                <MudText Typo="Typo.h5" Class="mb-1">@(metadata.Title ?? "Untitled")</MudText>
-                                <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@(string.IsNullOrEmpty(metadata.Artist) ? "Unknown Artist" : metadata.Artist)</MudText>
+                                <MudText Typo="Typo.h5" Class="mb-1">@(metadata.Title ?? "Без назви")</MudText>
+                                <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@(string.IsNullOrEmpty(metadata.Artist) ? "Невідомий виконавець" : metadata.Artist)</MudText>
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">@(string.IsNullOrEmpty(metadata.Album) ? "" : metadata.Album) @(!string.IsNullOrEmpty(metadata.Year) ? $"({metadata.Year})" : "")</MudText>
-                                
+
                                 @if (!string.IsNullOrEmpty(metadata.Genre))
                                 {
                                     <div class="d-flex align-center justify-center mt-2 flex-wrap">
@@ -217,20 +217,20 @@
                                     </div>
                                 }
                             </div>
-                            
+
                             @if (!string.IsNullOrEmpty(previewUrl))
                             {
                                 <div class="w-100 mt-2 player-container">
                                     <audio controls class="w-100 audio-player">
                                         <source src="@previewUrl" type="audio/mpeg">
-                                        Your browser does not support the audio element.
+                                        Ваш браузер не підтримує аудіоелемент.
                                     </audio>
                                 </div>
                             }
                             else
                             {
                                 <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">
-                                    Save changes to preview the audio here
+                                    Збережіть зміни, щоб прослухати аудіо тут
                                 </MudAlert>
                             }
                         </div>
@@ -240,10 +240,10 @@
                         <div class="d-flex flex-column align-center justify-center empty-state">
                             <MudIcon Icon="@Icons.Material.Filled.AudioFile" Size="Size.Large" Color="Color.Secondary" Class="mb-4" />
                             <MudText Align="Align.Center" Color="Color.Secondary" Typo="Typo.h6" Class="mb-2">
-                                No MP3 File Selected
+                                MP3-файл не вибрано
                             </MudText>
                             <MudText Align="Align.Center" Color="Color.Secondary">
-                                Upload an MP3 file to edit metadata and preview audio
+                                Завантажте MP3-файл, щоб редагувати метадані та прослухати аудіо
                             </MudText>
                         </div>
                     }
@@ -285,7 +285,7 @@
             // Verify it's an MP3 file
             if (!browserFile.ContentType.Equals("audio/mpeg") && !Path.GetExtension(browserFile.Name).Equals(".mp3", StringComparison.OrdinalIgnoreCase))
             {
-                errorMessage = "Only MP3 files are allowed.";
+                errorMessage = "Тільки MP3 файли дозволено.";
                 browserFile = null;
                 return;
             }
@@ -293,7 +293,7 @@
             // Check file size (50MB max)
             if (browserFile.Size > 52428800)
             {
-                errorMessage = "File size exceeds the 50MB limit.";
+                errorMessage = "Розмір файлу перевищує 50 Мб.";
                 browserFile = null;
                 return;
             }
@@ -332,12 +332,12 @@
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                errorMessage = $"Error: {error}";
+                errorMessage = $"Помилка: {error}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred: {ex.Message}";
+            errorMessage = $"Сталась помилка: {ex.Message}";
         }
         finally
         {
@@ -436,7 +436,7 @@
                 // Download the file
                 await DownloadFileFromBytes(fileBytes, metadata.Title ?? fileName ?? "updated.mp3");
                 
-                Snackbar.Add("Metadata updated successfully!", Severity.Success);
+                Snackbar.Add("Метадані успішно оновлено!", Severity.Success);
                 
                 // Reset album art selection
                 newAlbumArtFile = null;
@@ -450,14 +450,14 @@
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                errorMessage = $"Error: {error}";
-                Snackbar.Add($"Error: {error}", Severity.Error);
+                errorMessage = $"Помилка: {error}";
+                Snackbar.Add($"Помилка: {error}", Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred: {ex.Message}";
-            Snackbar.Add($"An error occurred: {ex.Message}", Severity.Error);
+            errorMessage = $"Сталась помилка: {ex.Message}";
+            Snackbar.Add($"Сталась помилка: {ex.Message}", Severity.Error);
         }
         finally
         {

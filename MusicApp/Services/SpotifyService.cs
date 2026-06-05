@@ -463,253 +463,241 @@ namespace MusicApp.Services
         }
 
         public async Task<List<SpotifyArtistDto>> SearchArtistsAsync(string accessToken, string query)
+{
+    if (string.IsNullOrWhiteSpace(query)) return new List<SpotifyArtistDto>();
+
+    // Спробуй прибрати ліміт взагалі або переконатися, що він ціле число
+    var requestUrl = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(query)}&type=artist&limit=10";
+    
+    var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+    try
+    {
+        var response = await _httpClient.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
         {
-            // Create an HttpClient with the appropriate authorization header
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-            
-            try
-            {
-                // Encode the query parameter properly
-                var encodedQuery = Uri.EscapeDataString(query);
-                var response = await httpClient.GetAsync($"https://api.spotify.com/v1/search?q={encodedQuery}&type=artist&limit=20");
-                response.EnsureSuccessStatusCode();
-                
-                var content = await response.Content.ReadAsStringAsync();
-                var searchResponse = System.Text.Json.JsonSerializer.Deserialize<SpotifySearchResponse>(content, 
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                
-                if (searchResponse?.Artists?.Items == null)
-                    return new List<SpotifyArtistDto>();
-                    
-                // Map the response to our DTO model
-                var artists = searchResponse.Artists.Items.Select(a => new SpotifyArtistDto
-                {
-                    Id = a.Id,
-                    Name = a.Name,
-                    Popularity = a.Popularity,
-                    Genres = a.Genres,
-                    Images = a.Images?.Select(img => new SpotifyImage
-                    {
-                        Url = img.Url,
-                        Height = img.Height,
-                        Width = img.Width
-                    }).ToList() ?? new List<SpotifyImage>(),
-                    ExternalUrls = a.ExternalUrls
-                }).ToList();
-                
-                return artists;
-            }
-            catch (Exception ex)
-            {
-                // Log the exceptionАа
-                Console.WriteLine($"Error searching for artists: {ex.Message}");
-                return new List<SpotifyArtistDto>();
-            }
+            // Це виведе тобі точний URL, який викликає помилку
+            Console.WriteLine($"DEBUG: Request URL: {requestUrl}");
+            Console.WriteLine($"Spotify API Error: {response.StatusCode} - {content}");
+            return new List<SpotifyArtistDto>();
         }
 
+        var searchResponse = JsonSerializer.Deserialize<SpotifySearchResponse>(content, 
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-        public async Task<List<string>> GetArtistAlbumsAsync(string accessToken, string artistId)
+        // Мапінг (виправлення CS0029, яке ми обговорювали)
+        return searchResponse?.Artists?.Items?.Select(a => new SpotifyArtistDto
         {
-            var albumIds = new List<string>();
-            string nextUrl = $"{_apiBaseUrl}/artists/{artistId}/albums?limit=50&include_groups=album,single,appears_on";
-            
-            while (!string.IsNullOrEmpty(nextUrl))
+            Id = a.Id,
+            Name = a.Name,
+            Popularity = a.Popularity,
+            Genres = a.Genres,
+            Images = a.Images?.Select(img => new MusicApp.Shared.Models.SpotifyImage
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, nextUrl);
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                
-                var response = await _httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-                
-                var content = await response.Content.ReadAsStringAsync();
-                var albumsResponse = JsonSerializer.Deserialize<SpotifyPaginatedResponse<SpotifyAlbumDto>>(
-                    content, 
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-                );
-                
-                if (albumsResponse?.Items != null)
+                Url = img.Url,
+                Height = img.Height,
+                Width = img.Width
+            }).ToList() 
+        }).ToList() ?? new List<SpotifyArtistDto>();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Critical Search Failure: {ex.Message}");
+        return new List<SpotifyArtistDto>();
+    }
+}
+
+
+   public async Task<List<string>> GetArtistAlbumsAsync(string accessToken, string artistId)
+{
+    if (string.IsNullOrWhiteSpace(artistId)) return new List<string>();
+
+    // Очищаємо ID і використовуємо прямий шлях до альбомів артиста
+    var cleanId = artistId.Trim();
+    var requestUrl = $"{_apiBaseUrl}/artists/{cleanId}/albums?limit=5&include_groups=album";
+
+    var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+    try
+    {
+        var response = await _httpClient.SendAsync(request);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            // Якщо все одно 403, ми побачимо причину в консолі
+            Console.WriteLine($"SPOTIFY 403/400 DEBUG: {response.StatusCode} - {error}");
+            return new List<string>();
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<SpotifyPaginatedResponse<SpotifyAlbumDto>>(content, 
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        return result?.Items?.Select(a => a.Id).ToList() ?? new List<string>();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Critical failure in GetArtistAlbums: {ex.Message}");
+        return new List<string>();
+    }
+}
+      public async Task<List<RelatedArtistDto>> GetRelatedArtistsFromAlbumsAsync(
+    string accessToken, 
+    List<string> albumIds, 
+    string artistId)
+{
+    var connectedArtists = new HashSet<string>();
+    var connectedArtistsData = new List<RelatedArtistDto>();
+    
+    // Обробляємо альбоми батчами по 20 (ліміт Spotify API)
+    for (int i = 0; i < albumIds.Count; i += 20)
+    {
+        var batch = albumIds.Skip(i).Take(20).ToList();
+        var idsParam = string.Join(",", batch);
+        
+        if (string.IsNullOrWhiteSpace(idsParam)) continue;
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiBaseUrl}/albums?ids={idsParam}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        // Додаємо обов'язковий заголовок для стабільної роботи у 2026 році
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        
+        try
+        {
+            var response = await _httpClient.SendAsync(request);
+            
+            // Обробка Rate Limiting
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                int retryAfter = 5;
+                if (response.Headers.RetryAfter?.Delta.HasValue == true)
                 {
-                    albumIds.AddRange(albumsResponse.Items
-                        .Where(album => !string.IsNullOrEmpty(album.Id))
-                        .Select(album => album.Id!));
+                    retryAfter = (int)response.Headers.RetryAfter.Delta.Value.TotalSeconds;
                 }
                 
-                nextUrl = albumsResponse?.Next ?? string.Empty;
+                await Task.Delay(retryAfter * 1000);
+                i -= 20; // Повторюємо цей же батч
+                continue;
             }
             
-            return albumIds;
-        }
-        
-        public async Task<List<RelatedArtistDto>> GetRelatedArtistsFromAlbumsAsync(
-            string accessToken, 
-            List<string> albumIds, 
-            string artistId)
-        {
-            var connectedArtists = new HashSet<string>();
-            var connectedArtistsData = new List<RelatedArtistDto>();
-            
-            // Process albums in batches of 20 (Spotify API limit)
-            for (int i = 0; i < albumIds.Count; i += 20)
+            if (!response.IsSuccessStatusCode)
             {
-                var batch = albumIds.Skip(i).Take(20).ToList();
-                var idsParam = string.Join(",", batch);
-                
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiBaseUrl}/albums?ids={idsParam}");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                
-                try
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"DEBUG: Error fetching albums: {response.StatusCode} - {errorContent}");
+                continue;
+            }
+            
+            var content = await response.Content.ReadAsStringAsync();
+            // Виправлено помилку CS0426: звертаємось безпосередньо до класу[cite: 7]
+            var albumsResponse = JsonSerializer.Deserialize<SpotifyMultipleAlbumsResponse>(
+                content, 
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+            
+            if (albumsResponse?.Albums != null)
+            {
+                foreach (var album in albumsResponse.Albums)
                 {
-                    var response = await _httpClient.SendAsync(request);
+                    if (album?.Tracks?.Items == null) continue;
                     
-                    // Handle API rate limiting
-                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    foreach (var track in album.Tracks.Items)
                     {
-                        // Get retry-after header or default to 5 seconds
-                        int retryAfter = 5;
-                        if (response.Headers.RetryAfter?.Delta.HasValue == true)
-                        {
-                            retryAfter = (int)response.Headers.RetryAfter.Delta.Value.TotalSeconds;
-                        }
+                        if (track?.Artists == null) continue;
                         
-                        await Task.Delay(retryAfter * 1000);
-                        i -= 20; // Retry this batch
-                        continue;
-                    }
-                    
-                    response.EnsureSuccessStatusCode();
-                    
-                    var content = await response.Content.ReadAsStringAsync();
-                    var albumsResponse = JsonSerializer.Deserialize<SpotifyMultipleAlbumsResponse>(
-                        content, 
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-                    );
-                    
-                    if (albumsResponse?.Albums != null)
-                    {
-                        foreach (var album in albumsResponse.Albums)
+                        var artistIdsInTrack = track.Artists.Select(a => a.Id).ToList();
+                        
+                        // Ключовий алгоритм: шукаємо треки, де наш артист є колаборатором[cite: 7]
+                        // Виправлено помилку CS0019: звернення до властивості Count
+                        if (artistIdsInTrack != null && artistIdsInTrack.Count > 1 && artistIdsInTrack.Contains(artistId))
                         {
-                            if (album?.Tracks?.Items == null) continue;
-                            
-                            foreach (var track in album.Tracks.Items)
+                            foreach (var trackArtist in track.Artists)
                             {
-                                if (track?.Artists == null) continue;
+                                var newArtistId = trackArtist.Id;
                                 
-                                var artistIds = track.Artists.Select(a => a.Id).ToList();
-                                
-                                // Only process tracks where the requested artist is a collaborator
-                                if (artistIds.Count > 1 && artistIds.Contains(artistId))
+                                // Пропускаємо самого артиста та тих, кого вже знайшли[cite: 7]
+                                if (newArtistId != artistId && !connectedArtists.Contains(newArtistId!))
                                 {
-                                    int index = 0;
-                                    foreach (var trackArtist in track.Artists)
+                                    string embedUrl = string.Empty;
+                                    if (!string.IsNullOrEmpty(track.ExternalUrls?.Spotify))
                                     {
-                                        var newArtistId = trackArtist.Id;
-                                        
-                                        // Skip the original artist and artists we've already found
-                                        if (newArtistId != artistId && !connectedArtists.Contains(newArtistId!))
+                                        var trackParts = track.ExternalUrls.Spotify.Split("/track/");
+                                        if (trackParts.Length > 1)
                                         {
-                                            // Create embed URL from track URL
-                                            string embedUrl = string.Empty;
-                                            if (!string.IsNullOrEmpty(track.ExternalUrls?.Spotify))
-                                            {
-                                                var trackParts = track.ExternalUrls.Spotify.Split("/track/");
-                                                if (trackParts.Length > 1)
-                                                {
-                                                    embedUrl = $"{trackParts[0]}/embed/track/{trackParts[1]}";
-                                                }
-                                            }
-                                            
-                                            connectedArtists.Add(newArtistId!);
-                                            connectedArtistsData.Add(new RelatedArtistDto
-                                            {
-                                                ArtistId = newArtistId!,
-                                                ArtistName = trackArtist.Name!,
-                                                TrackName = $"{track.Name} by {album.Artists?.FirstOrDefault()?.Name ?? "Unknown"}",
-                                                TrackURL = track.PreviewUrl,
-                                                TrackLink = embedUrl
-                                            });
+                                            embedUrl = $"{trackParts[0]}/embed/track/{trackParts[1]}";
                                         }
-                                        index++;
                                     }
+                                    
+                                    connectedArtists.Add(newArtistId!);
+                                    connectedArtistsData.Add(new RelatedArtistDto
+                                    {
+                                        ArtistId = newArtistId!,
+                                        ArtistName = trackArtist.Name!,
+                                        TrackName = $"{track.Name} by {album.Artists?.FirstOrDefault()?.Name ?? "Unknown"}",
+                                        TrackURL = track.PreviewUrl,
+                                        TrackLink = embedUrl
+                                    });
                                 }
                             }
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    // Log exception and continue with next batch
-                    Console.WriteLine($"Error fetching albums: {ex.Message}");
-                    continue;
-                }
             }
-            
-            return connectedArtistsData;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error processing album batch: {ex.Message}");
+            continue;
+        }
+    }
+    
+    return connectedArtistsData;
+}
+        public async Task<List<SpotifyArtistDto>> GetArtistsDataAsync(string accessToken, List<string> artistIds)
+{
+    if (artistIds == null || !artistIds.Any()) return new List<SpotifyArtistDto>();
+
+    // Очищаємо ID від можливих пробілів або пустих значень
+    var cleanIds = artistIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+    
+    // Spotify дозволяє максимум 50 ID за один запит
+    var batch = cleanIds.Take(50).ToList();
+    var idsParam = string.Join(",", batch);
+
+    var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiBaseUrl}/artists?ids={idsParam}");
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json")); // Обов'язково для 2026
+
+    try
+    {
+        var response = await _httpClient.SendAsync(request);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            // Логуємо конкретну відповідь від Spotify, щоб зрозуміти ЧОМУ 400
+            Console.WriteLine($"SPOTIFY API ERROR (ArtistsData): {response.StatusCode} - {error}");
+            return new List<SpotifyArtistDto>(); // Повертаємо пустий список замість Exception
         }
 
-        public async Task<List<SpotifyArtistDto>> GetArtistsDataAsync(string accessToken, List<string> artistIds)
-        {
-            var artistData = new List<SpotifyArtistDto>();
-            
-            // Process artists in batches of 50 (Spotify API limit)
-            for (int i = 0; i < artistIds.Count; i += 50)
-            {
-                var batch = artistIds.Skip(i).Take(50).ToList();
-                var idsParam = string.Join(",", batch);
-                
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{_apiBaseUrl}/artists?ids={idsParam}");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                
-                try
-                {
-                    var response = await _httpClient.SendAsync(request);
-                    
-                    // Handle API rate limiting
-                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                    {
-                        // Get retry-after header or default to 5 seconds
-                        int retryAfter = 5;
-                        if (response.Headers.RetryAfter?.Delta.HasValue == true)
-                        {
-                            retryAfter = (int)response.Headers.RetryAfter.Delta.Value.TotalSeconds;
-                        }
-                        
-                        await Task.Delay(retryAfter * 1000);
-                        i -= 50; // Retry this batch
-                        continue;
-                    }
-                    
-                    response.EnsureSuccessStatusCode();
-                    
-                    var content = await response.Content.ReadAsStringAsync();
-                    var artistsResponse = JsonSerializer.Deserialize<SpotifyMultipleArtistsResponse>(
-                        content, 
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-                    );
-                    
-                    if (artistsResponse?.Artists != null)
-                    {
-                        artistData.AddRange(artistsResponse.Artists.Select(a => new SpotifyArtistDto
-                        {
-                            Id = a.Id,
-                            Name = a.Name,
-                            Popularity = a.Popularity,
-                            Images = a.Images,
-                            Genres = a.Genres,
-                            ExternalUrls = a.ExternalUrls
-                        }));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log exception and continue with next batch
-                    Console.WriteLine($"Error fetching artists: {ex.Message}");
-                    continue;
-                }
-            }
-            
-            return artistData;
-        }
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<SpotifyMultipleArtistsResponse>(content, 
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        return result?.Artists ?? new List<SpotifyArtistDto>();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"INTERNAL ERROR in GetArtistsDataAsync: {ex.Message}");
+        return new List<SpotifyArtistDto>();
+    }
+}
         
         public async Task<List<RelatedArtistDto>> GetRelatedArtistsAsync(string accessToken, string artistId)
         {
@@ -775,64 +763,42 @@ namespace MusicApp.Services
             public List<SpotifyAlbumDto>? Albums { get; set; }
         }
 
-        public List<SpotifyArtistDto> AnalyzeArtistsDeep(List<SpotifyArtistDto> artists)
+       public List<SpotifyArtistDto> AnalyzeArtistsDeep(List<SpotifyArtistDto> artists)
 {
-    if (artists == null || artists.Count == 0)
-        return artists ?? new List<SpotifyArtistDto>();
+    if (artists == null || !artists.Any()) return new List<SpotifyArtistDto>();
 
-    try
+    // Рахуємо частоту жанрів у списку
+    var genreFrequency = artists
+        .Where(a => a.Genres != null)
+        .SelectMany(a => a.Genres!)
+        .GroupBy(g => g)
+        .ToDictionary(g => g.Key, g => g.Count());
+
+    return artists.Select(a =>
     {
-        var genreFrequency = new Dictionary<string, int>();
+        // 1. Якщо популярність null, даємо базове значення 50, щоб не псувати рейтинг[cite: 3]
+        double popularity = a.Popularity ?? 50.0;
+        
+        int genreCount = a.Genres?.Count ?? 0;
+        double rarity = 0;
 
-        foreach (var a in artists)
+        if (a.Genres != null)
         {
-            if (a.Genres == null) continue;
-
             foreach (var g in a.Genres)
             {
-                if (string.IsNullOrWhiteSpace(g)) continue;
-
-                if (genreFrequency.ContainsKey(g))
-                    genreFrequency[g]++;
-                else
-                    genreFrequency[g] = 1;
+                if (genreFrequency.TryGetValue(g, out var count))
+                    rarity += 1.0 / count;
             }
         }
 
-        var result = artists
-            .Select(a =>
-            {
-                double popularity = a.Popularity ?? 0;
-                int genreCount = a.Genres?.Count ?? 0;
+        // 2. Оновлена формула: більше ваги на унікальність жанрів (rarity)[cite: 1]
+        double score = (popularity * 0.4) + (genreCount * 5 * 0.2) + (rarity * 40 * 0.4);
 
-                double rarity = 0;
-
-                if (a.Genres != null)
-                {
-                    foreach (var g in a.Genres)
-                    {
-                        if (genreFrequency.TryGetValue(g, out var count) && count > 0)
-                            rarity += 1.0 / count;
-                    }
-                }
-
-                double score =
-                    (popularity * 0.5) +
-                    (genreCount * 10 * 0.3) +
-                    (rarity * 50 * 0.2);
-
-                return new { a, score };
-            })
-            .OrderByDescending(x => x.score)
-            .Select(x => x.a)
-            .ToList();
-
-        return result;
-    }
-    catch
-    {
-        return artists;
-    }
+        return new { a, score };
+    })
+    .OrderByDescending(x => x.score)
+    .Select(x => x.a)
+    .ToList();
 }
     }
 }

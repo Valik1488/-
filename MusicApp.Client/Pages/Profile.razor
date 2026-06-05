@@ -22,12 +22,12 @@
                 @if (_profile.Images != null && _profile.Images.Count > 0)
                 {
                     <MudAvatar Size="Size.Large" Style="height: 80px; width: 80px; border: 3px solid white;" Class="mr-4">
-                        <MudImage Src="@_profile.Images[0].Url" Alt="Profile Image" />
+                        <MudImage Src="@_profile.Images[0].Url" Alt="Зображення профілю" />
                     </MudAvatar>
                 }
                 <div>
                     <MudText Typo="Typo.h4" Style="color: white; font-weight: 700;">@_profile.DisplayName</MudText>
-                    <MudText Typo="Typo.body2" Style="color: white; opacity: 0.8;">Spotify Profile</MudText>
+                    <MudText Typo="Typo.body2" Style="color: white; opacity: 0.8;">Профіль Spotify</MudText>
                 </div>
             </div>
         </MudPaper>
@@ -37,7 +37,7 @@
                 <MudCard Class="h-100">
                     <MudCardHeader>
                         <CardHeaderContent>
-                            <MudText Typo="Typo.h6">Account Details</MudText>
+                            <MudText Typo="Typo.h6">Деталі облікового запису</MudText>
                         </CardHeaderContent>
                         <CardHeaderActions>
                             <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" />
@@ -51,7 +51,7 @@
                                 </MudIcon>
                                 <MudItem>
                                     <MudText Typo="Typo.body1">@_profile.DisplayName</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Display Name</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ім’я для відображення</MudText>
                                 </MudItem>
                             </MudListItem>
                             <MudDivider />
@@ -61,7 +61,7 @@
                                 </MudIcon>
                                 <MudItem>
                                     <MudText Typo="Typo.body1">@_profile.Email</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Email</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Електронна пошта</MudText>
                                 </MudItem>
                             </MudListItem>
                             @if (!string.IsNullOrEmpty(_profile.Country))
@@ -73,7 +73,7 @@
                                     </MudIcon>
                                     <MudItem>
                                         <MudText Typo="Typo.body1">@_profile.Country</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Country</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Країна</MudText>
                                     </MudItem>
                                 </MudListItem>
                             }
@@ -86,7 +86,7 @@
                 <MudCard Class="h-100">
                     <MudCardHeader>
                         <CardHeaderContent>
-                            <MudText Typo="Typo.h6">Subscription</MudText>
+                            <MudText Typo="Typo.h6">Підписка</MudText>
                         </CardHeaderContent>
                     </MudCardHeader>
                     <MudCardContent>
@@ -98,7 +98,7 @@
                                 </MudAvatar>
                                 <div>
                                     <MudText Typo="Typo.h6">Spotify Premium</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Full access to all features</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Повний доступ до всіх функцій</MudText>
                                 </div>
                             }
                             else
@@ -108,16 +108,16 @@
                                 </MudAvatar>
                                 <div>
                                     <MudText Typo="Typo.h6">Spotify Free</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Limited features with ads</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Обмежені функції з рекламою</MudText>
                                 </div>
                             }
                         </div>
-                        <MudButton Variant="Variant.Outlined" 
-                                  Color="Color.Primary" 
+                        <MudButton Variant="Variant.Outlined"
+                                  Color="Color.Primary"
                                   FullWidth="true"
                                   EndIcon="@Icons.Material.Filled.OpenInNew"
                                   OnClick="() => NavigationManager.NavigateTo(SpotifyAccountUrl, true)">
-                            Manage Subscription
+                            Керувати підпискою
                         </MudButton>
                     </MudCardContent>
                 </MudCard>
@@ -125,11 +125,11 @@
         </MudGrid>
 
         <div class="mt-6 text-center">
-            <MudButton Variant="Variant.Text" 
+            <MudButton Variant="Variant.Text"
                       Color="Color.Error"
                       StartIcon="@Icons.Material.Filled.Logout"
                       OnClick="Logout">
-                Sign Out
+                Вийти
             </MudButton>
         </div>
     }
@@ -137,13 +137,13 @@
     {
         <MudPaper Elevation="2" Class="pa-6 text-center">
             <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Large" Color="Color.Error" />
-            <MudText Typo="Typo.h6" Class="mt-3">Failed to load profile information</MudText>
-            <MudButton Variant="Variant.Outlined" 
-                      Color="Color.Primary" 
+            <MudText Typo="Typo.h6" Class="mt-3">Не вдалося завантажити інформацію профілю</MudText>
+            <MudButton Variant="Variant.Outlined"
+                      Color="Color.Primary"
                       Class="mt-3"
                       StartIcon="@Icons.Material.Filled.Refresh"
                       OnClick="ReloadProfile">
-                Try Again
+                Спробувати ще раз
             </MudButton>
         </MudPaper>
     }
@@ -153,7 +153,7 @@
     private SpotifyUserProfile? _profile;
     private bool _isLoading = true;
     public string SpotifyAccountUrl => "https://www.spotify.com/account/overview/";
-    
+
     protected override async Task OnInitializedAsync()
     {
         await LoadProfile();
@@ -168,7 +168,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error loading profile: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Помилка завантаження профілю: {ex.Message}", Severity.Error);
             _profile = null;
         }
         finally

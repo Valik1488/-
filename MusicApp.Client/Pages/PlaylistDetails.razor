@@ -20,9 +20,9 @@
     {
         <MudLink Href="/playlists" Class="mb-4 d-flex align-center">
             <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Class="mr-2" />
-            Back to Playlists
+            Назад до плейлистів
         </MudLink>
-        
+
         <MudGrid Class="mt-4">
             <MudItem xs="12" md="4">
                 <MudCard Elevation="3" Class="sticky-top">
@@ -44,14 +44,14 @@
                         }
                         <MudDivider Class="my-3" />
                         <div class="d-flex justify-space-between align-center">
-                            <MudText Typo="Typo.body1"><strong>@_playlist.Tracks?.Total</strong> tracks</MudText>
+                            <MudText Typo="Typo.body1"><strong>@_playlist.Tracks?.Total</strong> треків</MudText>
                             @if (_playlist.Tracks?.Total <= 300)
                             {
-                                <MudChip T="string" Color="Color.Success" Size="Size.Small">Recommendations Available</MudChip>
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small">Рекомендації доступні</MudChip>
                             }
                             else
                             {
-                                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Title="Spotify API limits recommendations to playlists with 300 or fewer tracks">Too Large for Recommendations</MudChip>
+                                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Title="Spotify API обмежує рекомендації плейлистами з 300 або менше треками">Занадто великий для рекомендацій</MudChip>
                             }
                         </div>
                     </MudCardContent>
@@ -61,7 +61,7 @@
                                   Variant="Variant.Filled"
                                   Color="Color.Primary"
                                   OnClick="@(() => OpenSpotifyPlaylist(_playlist.Id!))">
-                            Open in Spotify
+                            Відкрити у Spotify
                         </MudButton>
                     </MudCardActions>
                     @if (_playlist.Tracks?.Total <= 300)
@@ -76,47 +76,47 @@
                                 @if (_isLoadingRecommendations)
                                 {
                                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                    <span>Loading...</span>
+                                    <span>Завантаження...</span>
                                 }
                                 else
                                 {
-                                    <span>Get Fresh Recommendations</span>
+                                    <span>Отримати нові рекомендації</span>
                                 }
                             </MudButton>
                         </MudCardActions>
                     }
                 </MudCard>
             </MudItem>
-            
+
             <MudItem xs="12" md="8">
                 @if (_isLoadingRecommendations)
                 {
                     <MudPaper Elevation="2" Class="pa-6 text-center">
                         <MudProgressCircular Size="Size.Large" Indeterminate="true" Class="mb-4" />
-                        <MudText Typo="Typo.h6">Analyzing your playlist...</MudText>
-                        <MudText Typo="Typo.body2">Finding similar tracks based on the genres and musical features.</MudText>
+                        <MudText Typo="Typo.h6">Аналіз вашого плейлиста...</MudText>
+                        <MudText Typo="Typo.body2">Пошук схожих треків на основі жанрів та музичних характеристик.</MudText>
                     </MudPaper>
                 }
                 else if (_recommendations != null && _recommendations.Count > 0)
                 {
                     <MudPaper Elevation="2" Class="pa-4">
                         <div class="d-flex justify-space-between align-center mb-4">
-                            <MudText Typo="Typo.h5">Recommended Tracks</MudText>
-                            <MudButton Variant="Variant.Text" 
-                                     Color="Color.Default" 
+                            <MudText Typo="Typo.h5">Рекомендовані треки</MudText>
+                            <MudButton Variant="Variant.Text"
+                                     Color="Color.Default"
                                      OnClick="@ClearRecommendations"
                                      StartIcon="@Icons.Material.Filled.Close">
-                                Clear
+                                Очистити
                             </MudButton>
                         </div>
-                        
-                        <MudTextField @bind-Value="_trackSearchTerm" 
-                                    Placeholder="Search recommendations..." 
-                                    Adornment="Adornment.Start" 
-                                    AdornmentIcon="@Icons.Material.Filled.Search" 
+
+                        <MudTextField @bind-Value="_trackSearchTerm"
+                                    Placeholder="Пошук рекомендацій..."
+                                    Adornment="Adornment.Start"
+                                    AdornmentIcon="@Icons.Material.Filled.Search"
                                     Immediate="true"
                                     Class="mb-4" />
-                        
+
                         <MudList T="SpotifyTrackDto" Clickable="true">
                             @foreach (var track in FilteredRecommendations)
                             {
@@ -145,19 +145,19 @@
                                             <div class="d-flex">
                                                 @if (!string.IsNullOrEmpty(track.PreviewUrl))
                                                 {
-                                                    <MudTooltip Text="@(_currentlyPlayingPreviewUrl == track.PreviewUrl ? "Stop Preview" : "Play Preview")">
-                                                        <MudIconButton Icon="@(_currentlyPlayingPreviewUrl == track.PreviewUrl ? Icons.Material.Filled.Stop : Icons.Material.Filled.PlayArrow)" 
+                                                    <MudTooltip Text="@(_currentlyPlayingPreviewUrl == track.PreviewUrl ? "Зупинити прев’ю" : "Відтворити прев’ю")">
+                                                        <MudIconButton Icon="@(_currentlyPlayingPreviewUrl == track.PreviewUrl ? Icons.Material.Filled.Stop : Icons.Material.Filled.PlayArrow)"
                                                                      Size="Size.Small"
-                                                                     Color="Color.Primary" 
+                                                                     Color="Color.Primary"
                                                                      OnClick="@(() => PlayPreview(track.PreviewUrl))" />
                                                     </MudTooltip>
                                                 }
                                                 @if (!string.IsNullOrEmpty(track.Uri))
                                                 {
-                                                    <MudTooltip Text="Play on Spotify">
-                                                        <MudIconButton Icon="@Icons.Material.Filled.MusicNote" 
+                                                    <MudTooltip Text="Відтворити у Spotify">
+                                                        <MudIconButton Icon="@Icons.Material.Filled.MusicNote"
                                                                      Size="Size.Small"
-                                                                     Color="Color.Primary" 
+                                                                     Color="Color.Primary"
                                                                      OnClick="@(() => OpenSpotifyTrack(track.Uri))" />
                                                     </MudTooltip>
                                                 }
@@ -167,10 +167,10 @@
                                 </MudListItem>
                             }
                         </MudList>
-                        
+
                         @if (!FilteredRecommendations.Any())
                         {
-                            <MudAlert Severity="Severity.Info" Class="mt-4">No tracks match your search.</MudAlert>
+                            <MudAlert Severity="Severity.Info" Class="mt-4">Жоден трек не відповідає вашому пошуку.</MudAlert>
                         }
                     </MudPaper>
                 }
@@ -178,35 +178,35 @@
                 {
                     <MudPaper Elevation="2" Class="pa-6 text-center">
                         <MudIcon Icon="@Icons.Material.Filled.Recommend" Size="Size.Large" Style="opacity: 0.6;" />
-                        <MudText Typo="Typo.h6" Class="mt-2">No recommendations available</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-2">Рекомендації відсутні</MudText>
                         @if (_playlist.Tracks?.Total <= 300)
                         {
-                            <MudText Typo="Typo.body2" Class="mt-2">Click the "Get Fresh Recommendations" button to discover similar tracks.</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">Натисніть кнопку "Отримати нові рекомендації", щоб знайти схожі треки.</MudText>
                         }
                         else
                         {
-                            <MudText Typo="Typo.body2" Class="mt-2">This playlist has more than 300 tracks. Due to Spotify API limitations, recommendations are only available for playlists with 300 or fewer tracks.</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">Цей плейлист містить більше ніж 300 треків. Через обмеження Spotify API рекомендації доступні лише для плейлистів із 300 або менше треками.</MudText>
                         }
                     </MudPaper>
                 }
             </MudItem>
         </MudGrid>
     }
-    
+
     <style>
         .track-item {
             transition: background-color 0.2s;
         }
-        
+
         .track-item:hover {
             background-color: rgba(0,0,0,0.04);
         }
-        
+
         .sticky-top {
             position: sticky;
             top: 20px;
         }
-        
+
         @@media (max-width: 960px) {
             .sticky-top {
                 position: static;

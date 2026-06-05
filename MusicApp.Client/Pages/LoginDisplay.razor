@@ -5,20 +5,20 @@
 
 <AuthorizeView>
     <Authorized>
-        <MudMenu 
-            Icon="@Icons.Material.Filled.AccountCircle" 
-            Color="Color.Inherit" 
-            Direction="Direction.Bottom" 
+        <MudMenu
+            Icon="@Icons.Material.Filled.AccountCircle"
+            Color="Color.Inherit"
+            Direction="Direction.Bottom"
             OffsetY="true"
             Dense="false"
             Class="user-menu">
-            
+
             <ActivatorContent>
                 <MudAvatar Color="Color.Success" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);" Class="mud-elevation-4">
                     <MudIcon Icon="@Icons.Material.Filled.Person" />
                 </MudAvatar>
             </ActivatorContent>
-            
+
             <ChildContent>
                 <div class="px-3 py-4" style="min-width: 250px;">
                     <div class="d-flex flex-column align-center">
@@ -26,41 +26,41 @@
                             <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" />
                         </MudAvatar>
                         <MudText Typo="Typo.body1" Class="mt-2 font-weight-bold">@context.User.Identity?.Name</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Success">Connected with Spotify</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Success">Підключено до Spotify</MudText>
                     </div>
                 </div>
-                
+
                 <MudDivider />
-                
+
                 <div class="py-2">
                     <MudMenuItem Href="/profile" Icon="@Icons.Material.Filled.Person">
                         <div class="d-flex align-center">
-                            <span>View Profile</span>
+                            <span>Переглянути профіль</span>
                             <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="ml-auto" />
                         </div>
                     </MudMenuItem>
-                    
+
                     <MudMenuItem Href="/playlists" Icon="@Icons.Material.Filled.LibraryMusic">
                         <div class="d-flex align-center">
-                            <span>My Playlists</span>
+                            <span>Мої плейлисти</span>
                             <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="ml-auto" />
                         </div>
                     </MudMenuItem>
-                    
+
                     <MudMenuItem Href="/artists/search" Icon="@Icons.Material.Filled.Search">
                         <div class="d-flex align-center">
-                            <span>Find Artists</span>
+                            <span>Знайти виконавців</span>
                             <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="ml-auto" />
                         </div>
                     </MudMenuItem>
                 </div>
-                
+
                 <MudDivider />
-                
+
                 <div class="py-2">
                     <MudMenuItem OnClick="LogoutClick" Icon="@Icons.Material.Filled.Logout">
                         <div class="d-flex align-center">
-                            <span>Logout</span>
+                            <span>Вийти</span>
                         </div>
                     </MudMenuItem>
                 </div>
@@ -68,14 +68,14 @@
         </MudMenu>
     </Authorized>
     <NotAuthorized>
-        <MudButton 
-            Variant="Variant.Filled" 
-            Color="Color.Success" 
-            OnClick="LoginClick" 
+        <MudButton
+            Variant="Variant.Filled"
+            Color="Color.Success"
+            OnClick="LoginClick"
             StartIcon="@Icons.Material.Filled.MusicNote"
             Class="px-3 py-1"
             Style="border-radius: 20px;">
-            Connect Spotify
+            Підключити Spotify
         </MudButton>
     </NotAuthorized>
 </AuthorizeView>

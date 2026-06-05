@@ -11,29 +11,45 @@
 
 <MudContainer Class="mt-4" MaxWidth="MaxWidth.ExtraLarge">
     <MudPaper Elevation="3" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #1DB954 0%, #191414 100%);">
-        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Find Artists</MudText>
-        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Search for your favorite artists and explore their music</MudText>
+        <MudText Typo="Typo.h3" Class="mb-2" Style="color: white; font-weight: 700;">Знайти виконавців</MudText>
+        <MudText Typo="Typo.subtitle1" Style="color: white; opacity: 0.8;">Шукайте улюблених виконавців і досліджуйте їхню музику</MudText>
     </MudPaper>
 
     <MudGrid Class="mb-4">
-        <MudItem xs="12" md="8" lg="6" Class="mx-auto">
-            <MudTextField @bind-Value="_searchQuery"
-                          Placeholder="Search for artists..."
-                          Immediate="true"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          OnAdornmentClick="SearchArtists"
-                          OnKeyDown="@(async e => { if (e.Key == "Enter") await SearchArtists(); })"
-                          Variant="Variant.Outlined"
-                          FullWidth="true">
-                <MudButton Variant="Variant.Filled" 
-                            Color="Color.Primary" 
+        <MudItem xs="12">
+            <div class="d-flex justify-center">
+                <div class="d-flex gap-2 align-center w-100" style="max-width: 900px;">
+
+                    <MudTextField @bind-Value="_searchQuery"
+                                Placeholder="Пошук виконавців..."
+                                Immediate="true"
+                                Adornment="Adornment.Start"
+                                AdornmentIcon="@Icons.Material.Filled.Search"
+                                OnAdornmentClick="SearchArtists"
+                                OnKeyDown="@(async e => { if (e.Key == "Enter") await SearchArtists(); })"
+                                Variant="Variant.Outlined"
+                                Class="flex-grow-1" />
+
+                    <MudButton Variant="Variant.Filled"
+                            Color="Color.Primary"
                             OnClick="SearchArtists"
                             StartIcon="@Icons.Material.Filled.Search"
-                            Class="ml-2">
-                    Search
-                </MudButton>
-            </MudTextField>
+                            Style="white-space: nowrap;">
+                        Пошук
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                            Color="Color.Secondary"
+                            StartIcon="@Icons.Material.Filled.AutoAwesome"
+                            OnClick="SearchByAlgorithm"
+                            Style="white-space: nowrap;">
+                        Алг.Пошук
+                    </MudButton>
+
+
+
+                </div>
+            </div>
         </MudItem>
     </MudGrid>
 
@@ -63,13 +79,13 @@
                             }
                             <div class="artist-hover-content">
                                 <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Large" Color="Color.Inherit" />
-                                <MudText Typo="Typo.body1" Style="margin-top: 8px;">View Collaborations</MudText>
+                                <MudText Typo="Typo.body1" Style="margin-top: 8px;">Переглянути співпраці</MudText>
                             </div>
                             @if (artist.Popularity >= 70)
                             {
                                 <MudBadge Class="position-absolute" Style="top: 8px; right: 8px;" Color="Color.Warning">
                                     <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
-                                    Popular
+                                    Популярний
                                 </MudBadge>
                             }
                         </div>
@@ -86,20 +102,20 @@
                                 </MudText>
                             }
                             <div class="d-flex align-center mt-2">
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">Popularity: @artist.Popularity%</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">Популярність: @artist.Popularity%</MudChip>
                             </div>
                         </MudCardContent>
                         <MudCardActions Class="d-flex justify-space-between">
-                            <MudButton StartIcon="@Icons.Material.Filled.Person" 
-                                      Variant="Variant.Text" 
-                                      Color="Color.Primary" 
+                            <MudButton StartIcon="@Icons.Material.Filled.Person"
+                                      Variant="Variant.Text"
+                                      Color="Color.Primary"
                                       OnClick="() => ViewArtistCollaborations(artist.Id!)">
-                                View
+                                Переглянути
                             </MudButton>
-                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" 
-                                         Color="Color.Default" 
-                                         OnClick="() => OpenArtistInSpotify(artist.Id!)" 
-                                         Title="Open in Spotify" />
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                         Color="Color.Default"
+                                         OnClick="() => OpenArtistInSpotify(artist.Id!)"
+                                         Title="Відкрити в Spotify" />
                         </MudCardActions>
                     </MudCard>
                 </MudItem>
@@ -110,16 +126,16 @@
     {
         <MudPaper Elevation="2" Class="pa-6 text-center">
             <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Large" Style="opacity: 0.6;" />
-            <MudText Typo="Typo.h6" Class="mt-2">No artists found</MudText>
-            <MudText Typo="Typo.body2" Class="mt-2">Try a different search term</MudText>
+            <MudText Typo="Typo.h6" Class="mt-2">Виконавців не знайдено</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">Спробуйте інший пошуковий запит</MudText>
         </MudPaper>
     }
     else if (_isFirstSearch)
     {
         <MudPaper Elevation="2" Class="pa-6 text-center">
             <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" Style="opacity: 0.6;" />
-            <MudText Typo="Typo.h6" Class="mt-2">Search for your favorite artists</MudText>
-            <MudText Typo="Typo.body2" Class="mt-2">Type an artist name above to get started</MudText>
+            <MudText Typo="Typo.h6" Class="mt-2">Знайдіть своїх улюблених виконавців</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">Введіть ім’я виконавця вище, щоб почати</MudText>
         </MudPaper>
     }
 
@@ -128,12 +144,12 @@
             transform: translateY(-5px);
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-        
+
         .artist-hover-overlay {
             position: relative;
             cursor: pointer;
         }
-        
+
         .artist-hover-overlay:hover::after {
             content: '';
             position: absolute;
@@ -146,7 +162,7 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .artist-hover-content {
             position: absolute;
             top: 50%;
@@ -158,11 +174,11 @@
             z-index: 2;
             text-align: center;
         }
-        
+
         .artist-hover-overlay:hover .artist-hover-content {
             opacity: 1;
         }
-        
+
         .mud-text-ellipsis-two-line {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -182,7 +198,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if there is a query parameter
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("q", out var query))
         {
@@ -203,13 +218,12 @@
         try
         {
             _artists = await SpotifyService.SearchArtistsAsync(_searchQuery);
-            
-            // Update URL with search query
+
             NavigationManager.NavigateTo($"/artists/search?q={Uri.EscapeDataString(_searchQuery)}", false);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error searching artists: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Помилка пошуку виконавців: {ex.Message}", Severity.Error);
             _artists = new List<SpotifyArtistDto>();
         }
         finally
@@ -222,6 +236,12 @@
     private void ViewArtistCollaborations(string artistId)
     {
         NavigationManager.NavigateTo($"/artist/{artistId}/collaborations");
+    }
+
+        private void SearchByAlgorithm()
+    {
+        // сюди пхаєш якесь липове посилання на алгоритм, валіку!
+        Snackbar.Add("Алгоритмічний пошук ще не реалізований", Severity.Info);
     }
 
     private void OpenArtistInSpotify(string artistId)
