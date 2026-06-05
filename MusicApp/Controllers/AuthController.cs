@@ -35,15 +35,14 @@ namespace MusicApp.Controllers
         [HttpGet("spotify-login")]
         public IActionResult GetSpotifyLoginUrl()
         {
-            // Generate a random state to prevent CSRF attacks
             var state = GenerateRandomState();
             
-            // Store the state in session or cookies
+            // Налаштування куки сумісне з проксі-доменами ngrok
             HttpContext.Response.Cookies.Append("SpotifyAuthState", state, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Lax, // Changed from Strict to Lax to allow redirects from Spotify
+                SameSite = SameSiteMode.None, // Дозволяє крос-доменні редіректи зі Spotify через ngrok
                 MaxAge = TimeSpan.FromMinutes(10)
             });
             
@@ -56,21 +55,18 @@ namespace MusicApp.Controllers
         {
             _logger.LogInformation($"Received callback with state: {state}");
             
-            // Check if state cookie exists
             if (!HttpContext.Request.Cookies.TryGetValue("SpotifyAuthState", out var storedState))
             {
                 _logger.LogWarning("No SpotifyAuthState cookie found");
-                return BadRequest("State validation failed: No state cookie found");
+                return BadRequest("State validation failed: No state cookie found. Try using Incognito mode.");
             }
             
-            // Validate state to prevent CSRF attacks
             if (state != storedState)
             {
                 _logger.LogWarning($"State mismatch. Received: {state}, Stored: {storedState}");
                 return BadRequest("Invalid state parameter");
             }
             
-            // Remove the state cookie
             HttpContext.Response.Cookies.Delete("SpotifyAuthState");
             
             if (!string.IsNullOrEmpty(error))
@@ -86,10 +82,8 @@ namespace MusicApp.Controllers
                 
                 var tokenResponse = await _spotifyService.ExchangeCodeForTokenAsync(code, redirectUri!);
                 
-                // Get user profile from Spotify
                 var userProfile = await _spotifyService.GetUserProfileAsync(tokenResponse.AccessToken!);
                 
-                // Find or create user in database
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.SpotifyId == userProfile.Id);
                 if (user == null)
                 {
@@ -98,28 +92,23 @@ namespace MusicApp.Controllers
                     {
                         Id = Guid.NewGuid(),
                         SpotifyId = userProfile.Id!,
-                        Email = userProfile.Email!,
-                        DisplayName = userProfile.DisplayName!
+                        Email = userProfile.Email ?? "no-email@spotify.com",
+                        DisplayName = userProfile.DisplayName ?? "Spotify User"
                     };
                     
                     _context.Users.Add(user);
                 }
-                else
-                {
-                    _logger.LogInformation($"Found existing user for Spotify ID: {userProfile.Id}");
-                }
                 
-                // Update Spotify tokens
+                // Оновлюємо токени та час строго в UTC
                 user.SpotifyAccessToken = tokenResponse.AccessToken;
                 user.SpotifyRefreshToken = tokenResponse.RefreshToken;
                 user.SpotifyTokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
                 
                 await _context.SaveChangesAsync();
                 
-                // Generate JWT token for the user
+                // Генеруємо JWT
                 var jwt = GenerateJwtToken(user);
                 
-                // Redirect to client with token
                 var clientBaseUrl = _configuration["ClientBaseUrl"];
                 _logger.LogInformation($"Redirecting to: {clientBaseUrl}/auth/spotify-success");
                 return Redirect($"{clientBaseUrl}/auth/spotify-success?token={jwt}");
@@ -145,10 +134,10 @@ namespace MusicApp.Controllers
             {
                 var tokenResponse = await _spotifyService.RefreshTokenAsync(user.SpotifyRefreshToken!);
                 
-                // Update user tokens
                 user.SpotifyAccessToken = tokenResponse.AccessToken;
                 if (!string.IsNullOrEmpty(tokenResponse.RefreshToken))
                     user.SpotifyRefreshToken = tokenResponse.RefreshToken;
+                    
                 user.SpotifyTokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
                 
                 await _context.SaveChangesAsync();
@@ -187,7 +176,9 @@ namespace MusicApp.Controllers
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSecurityKey"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiry = DateTime.Now.AddDays(7);
+            
+            // ФІКС: Використовуємо строго UtcNow, щоб уникнути конфліктів часових поясів
+            var expiry = DateTime.UtcNow.AddDays(7);
 
             var token = new JwtSecurityToken(
                 issuer: _configuration["JwtIssuer"],

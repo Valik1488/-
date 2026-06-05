@@ -38,7 +38,18 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["JwtIssuer"],
         ValidAudience = builder.Configuration["JwtAudience"],
         IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["JwtSecurityKey"]!))
+            Encoding.UTF8.GetBytes(builder.Configuration["JwtSecurityKey"]!)),
+        ClockSkew = TimeSpan.FromMinutes(5) // Захист від розсинхронізації часу ngrok
+    };
+
+    // Логування помилок автентифікації в консоль бекенду
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"JWT AUTH FAILED: {context.Exception.Message}");
+            return Task.CompletedTask;
+        }
     };
 });
 

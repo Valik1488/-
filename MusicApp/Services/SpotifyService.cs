@@ -467,7 +467,7 @@ namespace MusicApp.Services
     if (string.IsNullOrWhiteSpace(query)) return new List<SpotifyArtistDto>();
 
     // Спробуй прибрати ліміт взагалі або переконатися, що він ціле число
-    var requestUrl = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(query)}&type=artist&limit=10";
+    var requestUrl = $"{_apiBaseUrl}/search?q={Uri.EscapeDataString(query)}&type=artist&limit=10";
     
     var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
