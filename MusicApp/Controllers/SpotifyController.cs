@@ -355,6 +355,62 @@ public async Task<IActionResult> GetRelatedArtists(string artistId)
         Console.WriteLine($"EXPLORE ERROR: {ex.Message}");
         return BadRequest($"Error retrieving related artists: {ex.Message}");
     }
+
+    
 }
+    [HttpGet("artists/search-algo")]
+        public async Task<IActionResult> SearchArtistsByAlgorithm([FromQuery] string query)
+        {
+            try
+            {
+                // 1. Отримуємо ID поточного авторизованого користувача додатка
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+                    return Unauthorized();
+
+                var user = await _context.Users.FindAsync(userGuid);
+                if (user == null)
+                    return NotFound("User not found");
+
+                // 2. Перевіряємо, чи не закінчився термін дії Spotify-токена, і рефрешимо за потреби
+                if (user.SpotifyTokenExpiry <= DateTime.UtcNow)
+                {
+                    try
+                    {
+                        var tokenResponse = await _spotifyService.RefreshTokenAsync(user.SpotifyRefreshToken!);
+                        user.SpotifyAccessToken = tokenResponse.AccessToken;
+                        if (!string.IsNullOrEmpty(tokenResponse.RefreshToken))
+                            user.SpotifyRefreshToken = tokenResponse.RefreshToken;
+                        user.SpotifyTokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        return Unauthorized($"Failed to refresh Spotify token: {ex.Message}");
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(query))
+                    return Ok(new List<SpotifyArtistDto>());
+
+                // 3. Передаємо параметри у ПРАВИЛЬНОМУ порядку: Спочатку Токен, потім Запит!
+                var ordinaryArtists = await _spotifyService.SearchArtistsAsync(user.SpotifyAccessToken!, query);
+                
+                if (ordinaryArtists == null || !ordinaryArtists.Any())
+                {
+                    return Ok(new List<SpotifyArtistDto>());
+                }
+
+                // 4. Проганяємо через твій фірмовий глибокий алгоритм аналізу
+                var analyzedArtists = _spotifyService.AnalyzeArtistsDeep(ordinaryArtists);
+
+                return Ok(analyzedArtists);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
 }
 }

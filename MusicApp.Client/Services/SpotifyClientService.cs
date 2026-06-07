@@ -307,6 +307,18 @@ public class SpotifyClientService : ISpotifyClientService
         
         return relatedArtists;
     }
+    public async Task<List<SpotifyArtistDto>> SearchArtistsByAlgorithmAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return new List<SpotifyArtistDto>();
 
+        var token = await _authService.GetToken();
+        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        
+        var encodedQuery = Uri.EscapeDataString(query);
+        // Стукаємо на ендпоінт бекенду, який прожене результати через твій AnalyzeArtistsDeep
+        return await _httpClient.GetFromJsonAsync<List<SpotifyArtistDto>>($"api/spotify/artists/search-algo?query={encodedQuery}") 
+               ?? new List<SpotifyArtistDto>();
+    }
    
 }

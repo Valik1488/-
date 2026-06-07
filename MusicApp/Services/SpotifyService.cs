@@ -274,7 +274,7 @@ namespace MusicApp.Services
                         content, 
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
                     );
-                    
+                   
                     if (artistsResponse?.Artists != null)
                     {
                         foreach (var artist in artistsResponse.Artists)

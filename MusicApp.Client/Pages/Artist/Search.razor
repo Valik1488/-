@@ -45,13 +45,19 @@
                             Style="white-space: nowrap;">
                         Алг.Пошук
                     </MudButton>
-
-
-
                 </div>
             </div>
         </MudItem>
     </MudGrid>
+
+    @if (!string.IsNullOrEmpty(_currentModeText))
+    {
+        <div class="d-flex justify-start mb-4">
+            <MudChip T="string" Variant="Variant.Filled" Color="@_modeChipColor" Icon="@_modeChipIcon">
+                @_currentModeText
+            </MudChip>
+        </div>
+    }
 
     @if (_isLoading)
     {
@@ -113,9 +119,9 @@
                                 Переглянути
                             </MudButton>
                             <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
-                                         Color="Color.Default"
-                                         OnClick="() => OpenArtistInSpotify(artist.Id!)"
-                                         Title="Відкрити в Spotify" />
+                                           Color="Color.Default"
+                                           OnClick="() => OpenArtistInSpotify(artist.Id!)"
+                                           Title="Відкрити в Spotify" />
                         </MudCardActions>
                     </MudCard>
                 </MudItem>
@@ -194,36 +200,97 @@
     private List<SpotifyArtistDto> _artists = new();
     private bool _isLoading = false;
     private bool _isFirstSearch = true;
-    private System.Threading.Timer? _debounceTimer;
+
+    // Змінні для керування відображенням поточного режиму
+    private string _currentModeText = string.Empty;
+    private Color _modeChipColor = Color.Default;
+    private string _modeChipIcon = Icons.Material.Filled.Search;
 
     protected override async Task OnInitializedAsync()
     {
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("q", out var query))
+        var queryParameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        
+        if (queryParameters.TryGetValue("q", out var query))
         {
             _searchQuery = query.ToString();
-            await SearchArtists();
+            
+            // Якщо в URL є мітка, що це алгоритмічний пошук, запускаємо його
+            if (queryParameters.TryGetValue("algo", out var algoMode) && algoMode == "true")
+            {
+                await ExecuteAlgorithmSearch();
+            }
+            else
+            {
+                await ExecuteStandardSearch();
+            }
         }
     }
 
     private async Task SearchArtists()
+    {
+        await ExecuteStandardSearch();
+    }
+
+    private async Task SearchByAlgorithm()
+    {
+        await ExecuteAlgorithmSearch();
+    }
+
+    private async Task ExecuteStandardSearch()
     {
         if (string.IsNullOrWhiteSpace(_searchQuery))
             return;
 
         _isLoading = true;
         _isFirstSearch = false;
+        _currentModeText = "Режим: Звичайний пошук Spotify";
+        _modeChipColor = Color.Primary;
+        _modeChipIcon = Icons.Material.Filled.Search;
         StateHasChanged();
 
         try
         {
             _artists = await SpotifyService.SearchArtistsAsync(_searchQuery);
-
             NavigationManager.NavigateTo($"/artists/search?q={Uri.EscapeDataString(_searchQuery)}", false);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Помилка пошуку виконавців: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Помилка звичайного пошуку: {ex.Message}", Severity.Error);
+            _artists = new List<SpotifyArtistDto>();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExecuteAlgorithmSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            Snackbar.Add("Будь ласка, введіть запит для алгоритмічного пошуку!", Severity.Warning);
+            return;
+        }
+
+        _isLoading = true;
+        _isFirstSearch = false;
+        _currentModeText = "Режим: Глибокий аналіз жанрів (AnalyzeArtistsDeep)";
+        _modeChipColor = Color.Secondary;
+        _modeChipIcon = Icons.Material.Filled.AutoAwesome;
+        StateHasChanged();
+
+        try
+        {
+            // Викликаємо наш новий метод фронтенд-сервісу
+            _artists = await SpotifyService.SearchArtistsByAlgorithmAsync(_searchQuery);
+            NavigationManager.NavigateTo($"/artists/search?q={Uri.EscapeDataString(_searchQuery)}&algo=true", false);
+            Snackbar.Add("Результати відсортовано за унікальністю жанрів!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Помилка алгоритмічного пошуку: {ex.Message}", Severity.Error);
             _artists = new List<SpotifyArtistDto>();
         }
         finally
@@ -236,12 +303,6 @@
     private void ViewArtistCollaborations(string artistId)
     {
         NavigationManager.NavigateTo($"/artist/{artistId}/collaborations");
-    }
-
-        private void SearchByAlgorithm()
-    {
-        // сюди пхаєш якесь липове посилання на алгоритм, валіку!
-        Snackbar.Add("Алгоритмічний пошук ще не реалізований", Severity.Info);
     }
 
     private void OpenArtistInSpotify(string artistId)
