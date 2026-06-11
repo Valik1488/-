@@ -3,10 +3,8 @@
 @inject IJSRuntime JSRuntime
 
 <div class="network-graph" style="width: 100%; height: 100%; position: relative;" @ref="_graphContainer">
-    <!-- SVG for graph visualization -->
     <svg width="100%" height="100%" @ref="_svgElement">
         <g class="graph-transform-group" @ref="_transformGroup">
-            <!-- Links between artists -->
             @foreach (var link in _links)
             {
                 <line x1="@link.Source.X" y1="@link.Source.Y" 
@@ -14,19 +12,20 @@
                       stroke="#999" stroke-opacity="0.6" stroke-width="1" />
             }
             
-            <!-- Artist Nodes -->
-            @foreach (var node in _nodes)
+            @for (int i = 0; i < _nodes.Count; i++)
             {
+                var node = _nodes[i];
+                string clipId = $"clip-{node.Id}-{i}"; // Гарантує унікальний ID для маски кожного артиста
+
                 <g class="node @(node.IsLeaf && !ShowLeaves ? "hidden" : "")" 
                    transform="translate(@node.X, @node.Y)" 
                    @onclick="() => OnNodeClick(node)"
                    @onmouseover="() => OnNodeHover(node, true)"
                    @onmouseout="() => OnNodeHover(node, false)">
                     
-                    <!-- If showing images and has image -->
                     @if (ShowImages && !string.IsNullOrEmpty(node.ImageUrl))
                     {
-                        <clipPath id="clip-@node.Id">
+                        <clipPath id="@clipId">
                             <circle r="@GetNodeRadius(node)" />
                         </clipPath>
                         <image href="@node.ImageUrl" 
@@ -34,7 +33,7 @@
                                height="@(GetNodeRadius(node) * 2)" 
                                x="@(-GetNodeRadius(node))" 
                                y="@(-GetNodeRadius(node))" 
-                               clip-path="url(#clip-@node.Id)" />
+                               clip-path="url(#@clipId)" />
                         <circle r="@GetNodeRadius(node)" 
                                 fill="transparent" 
                                 stroke="#fff" 
@@ -50,7 +49,6 @@
                                 class="@(node.IsHovered ? "hovered" : "")" />
                     }
                     
-                    <!-- Artist name label -->
                     <text dy=".35em" 
                           text-anchor="middle" 
                           font-size="@(node.IsMainArtist ? "14px" : "12px")" 
@@ -62,11 +60,10 @@
                         @node.Name
                     </text>
                 </g>
-            }
+            }   
         </g>
     </svg>
     
-    <!-- Zoom and Pan Controls -->
     <div class="zoom-controls" style="position: absolute; bottom: 10px; right: 10px;">
         <MudButtonGroup Color="Color.Primary" Variant="Variant.Filled">
             <MudButton OnClick="@ZoomIn" Size="Size.Small">
@@ -114,10 +111,6 @@
         cursor: pointer;
         transition: transform 0.2s ease;
     }
-    
-    @* .node:hover {
-        transform: scale(1.1);
-    } *@
     
     .hidden {
         display: none;
@@ -225,13 +218,10 @@
         if (ArtistConnections == null || !ArtistConnections.Any())
             return;
             
-        // Create nodes from ArtistConnections
         var mainArtist = ArtistConnections.FirstOrDefault();
         if (mainArtist == null)
             return;
             
-        // Layout nodes in a radial pattern
-        // Main artist at center
         var mainNode = new NodeData
         {
             Id = mainArtist.Id,
@@ -245,20 +235,19 @@
         };
         _nodes.Add(mainNode);
         
-        // Place other artists in a circle around the main artist
-        int radius = 300; // Base radius for layout
+        var rng = new Random();
+        
+        int radius = 300; 
         double angleStep = 2 * Math.PI / Math.Max(1, (ArtistConnections.Count - 1));
         double currentAngle = 0;
         
         foreach (var artist in ArtistConnections.Skip(1))
         {
-            // Position in circle with some randomness for better spread
-            float randomOffset = new Random().Next(-30, 30);
+            float randomOffset = rng.Next(-40, 40);
             float x = (float)(radius * Math.Cos(currentAngle)) + randomOffset;
             float y = (float)(radius * Math.Sin(currentAngle)) + randomOffset;
             
-            // Count connections to determine if this is a leaf node
-            bool isLeaf = artist.ConnectedArtists.Count <= 1;
+            bool isLeaf = artist.ConnectedArtists == null || artist.ConnectedArtists.Count <= 1;
             
             var node = new NodeData
             {
@@ -277,41 +266,45 @@
             currentAngle += angleStep;
         }
         
-        // Create links between artists
         foreach (var source in ArtistConnections)
         {
             var sourceNode = _nodes.FirstOrDefault(n => n.Id == source.Id);
             if (sourceNode == null)
                 continue;
                 
+            if (source.ConnectedArtists == null)
+                continue;
+                
             foreach (var targetId in source.ConnectedArtists)
             {
+                if (targetId == source.Id) continue; 
+
                 var targetNode = _nodes.FirstOrDefault(n => n.Id == targetId);
                 if (targetNode == null)
                     continue;
                     
-                _links.Add(new LinkData
+                if (!_links.Any(l => (l.Source.Id == sourceNode.Id && l.Target.Id == targetNode.Id) || 
+                                     (l.Source.Id == targetNode.Id && l.Target.Id == sourceNode.Id)))
                 {
-                    Source = sourceNode,
-                    Target = targetNode
-                });
+                    _links.Add(new LinkData
+                    {
+                        Source = sourceNode,
+                        Target = targetNode
+                    });
+                }
             }
         }
     }
     
     private float GetNodeRadius(NodeData node)
     {
-        // Base size for all nodes
         float baseSize = 20;
         
-        // Adjust size for main artist
         if (node.IsMainArtist)
             baseSize = 30;
             
-        // If popularity-based sizing is enabled
         if (PopularityBasedSize && node.Popularity > 0)
         {
-            // Scale from 15-40 based on popularity
             return baseSize * (0.5f + (node.Popularity / 100f));
         }
         
@@ -321,19 +314,18 @@
     private string GetNodeColor(NodeData node)
     {
         if (node.IsMainArtist)
-            return "#1DB954"; // Spotify green for main artist
+            return "#1DB954";
             
-        // Color based on popularity
         if (node.Popularity >= 80)
-            return "#FF4500"; // High popularity
+            return "#FF4500";
         else if (node.Popularity >= 60)
-            return "#FFA500"; // Medium-high popularity
+            return "#FFA500";
         else if (node.Popularity >= 40)
-            return "#6A5ACD"; // Medium popularity
+            return "#6A5ACD";
         else if (node.Popularity >= 20)
-            return "#4169E1"; // Medium-low popularity
+            return "#4169E1";
         else
-            return "#708090"; // Low popularity
+            return "#708090";
     }
     
     private async Task OnNodeClick(NodeData node)
@@ -346,16 +338,12 @@
         if (isHovered)
         {
             _hoveredNode = node;
-            // Calculate tooltip position (will be updated by JS)
-            _tooltipX = node.X + 500; // Offset from center of viewBox
+            _tooltipX = node.X + 500;
             _tooltipY = node.Y + 500;
-            
-            // Highlight the node
             node.IsHovered = true;
         }
         else
         {
-            // Remove highlight
             node.IsHovered = false;
             _hoveredNode = null;
         }
