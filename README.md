@@ -12,7 +12,7 @@ A privacy-focused web app that helps you:
 
 ⚠️ **No file sharing** – your music never leaves your device.
 
-## ✨ Features
+## ✨ Features.
 
 ### Local File Management
 - Drag-and-drop metadata editor
